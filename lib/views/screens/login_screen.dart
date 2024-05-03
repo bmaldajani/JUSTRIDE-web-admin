@@ -124,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: InputDecoration(
                                 labelText: lang.username,
                                 hintText: lang.username,
-                                helperText: '* Demo username: admin',
                                 border: const OutlineInputBorder(),
                                 floatingLabelBehavior: FloatingLabelBehavior.always,
                               ),
@@ -140,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               decoration: InputDecoration(
                                 labelText: lang.password,
                                 hintText: lang.password,
-                                helperText: '* Demo password: admin',
                                 border: const OutlineInputBorder(),
                                 floatingLabelBehavior: FloatingLabelBehavior.always,
                               ),

@@ -87,13 +87,8 @@ const localeMenuConfigs = [
     name: 'English',
   ),
   LocaleMenuConfig(
-    languageCode: 'zh',
+    languageCode: 'ar',
     scriptCode: 'Hans',
-    name: '中文 (简体)',
-  ),
-  LocaleMenuConfig(
-    languageCode: 'zh',
-    scriptCode: 'Hant',
-    name: '中文 (繁體)',
+    name: 'Arabic',
   ),
 ];
