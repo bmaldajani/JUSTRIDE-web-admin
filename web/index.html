@@ -29,7 +29,7 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>web_admin</title>
+  <title>Admin Panel</title>
   <link rel="manifest" href="manifest.json">
 
   <style>
@@ -74,7 +74,25 @@
       }
     }
   </style>
+<script>
+  // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyALIFzCQ0Zv-YblJheZWkfDBni6GCw28oA",
+  authDomain: "justride-116a0.firebaseapp.com",
+  projectId: "justride-116a0",
+  storageBucket: "justride-116a0.appspot.com",
+  messagingSenderId: "434330513806",
+  appId: "1:434330513806:web:a6fefdbc78301026a0b4df"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+  </script>
   <script>
     // The value below is injected by flutter build, do not touch.
     var serviceWorkerVersion = null;
