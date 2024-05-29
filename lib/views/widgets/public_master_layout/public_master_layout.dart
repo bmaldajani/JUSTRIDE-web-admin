@@ -14,6 +14,8 @@ class PublicMasterLayout extends StatelessWidget {
     required this.body,
   });
 
+  get localeMenuConfigs => null;
+
   @override
   Widget build(BuildContext context) {
     final themeData = Theme.of(context);

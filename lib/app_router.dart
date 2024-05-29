@@ -1,50 +1,38 @@
 import 'package:go_router/go_router.dart';
 import 'package:web_admin/providers/user_data_provider.dart';
-import 'package:web_admin/views/screens/buttons_screen.dart';
-import 'package:web_admin/views/screens/colors_screen.dart';
-import 'package:web_admin/views/screens/crud_detail_screen.dart';
-import 'package:web_admin/views/screens/crud_screen.dart';
 import 'package:web_admin/views/screens/dashboard_screen.dart';
-import 'package:web_admin/views/screens/dialogs_screen.dart';
 import 'package:web_admin/views/screens/error_screen.dart';
-import 'package:web_admin/views/screens/form_screen.dart';
-import 'package:web_admin/views/screens/general_ui_screen.dart';
-import 'package:web_admin/views/screens/iframe_demo_screen.dart';
 import 'package:web_admin/views/screens/login_screen.dart';
 import 'package:web_admin/views/screens/logout_screen.dart';
 import 'package:web_admin/views/screens/my_profile_screen.dart';
 import 'package:web_admin/views/screens/register_screen.dart';
-import 'package:web_admin/views/screens/text_screen.dart';
+import 'package:web_admin/views/screens/scooter_detail_screen.dart';
+import 'package:web_admin/views/screens/scooters_screen.dart';
+import 'package:web_admin/views/screens/user_detail_screen.dart';
+import 'package:web_admin/views/screens/users_screen.dart';
 
 class RouteUri {
   static const String home = '/';
   static const String dashboard = '/dashboard';
   static const String myProfile = '/my-profile';
   static const String logout = '/logout';
-  static const String form = '/form';
-  static const String generalUi = '/general-ui';
-  static const String colors = '/colors';
-  static const String text = '/text';
-  static const String buttons = '/buttons';
-  static const String dialogs = '/dialogs';
   static const String error404 = '/404';
   static const String login = '/login';
   static const String register = '/register';
-  static const String crud = '/crud';
-  static const String crudDetail = '/crud-detail';
-  static const String iframe = '/iframe';
+  static const String userDetail = '/user-detail';
+  static const String scooters = '/scooters'; // Add this constant
+  static const String scooterDetail = '/scooter-detail';
+  static const String users = '/users'; // Add this constant
 }
 
 const List<String> unrestrictedRoutes = [
   RouteUri.error404,
   RouteUri.logout,
-  RouteUri.login, // Remove this line for actual authentication flow.
-  RouteUri.register, // Remove this line for actual authentication flow.
 ];
 
 const List<String> publicRoutes = [
-  // RouteUri.login, // Enable this line for actual authentication flow.
-  // RouteUri.register, // Enable this line for actual authentication flow.
+  RouteUri.login,
+  RouteUri.register,
 ];
 
 GoRouter appRouter(UserDataProvider userDataProvider) {
@@ -80,48 +68,7 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           child: const LogoutScreen(),
         ),
       ),
-      GoRoute(
-        path: RouteUri.form,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const FormScreen(),
-        ),
-      ),
-      GoRoute(
-        path: RouteUri.generalUi,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const GeneralUiScreen(),
-        ),
-      ),
-      GoRoute(
-        path: RouteUri.colors,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const ColorsScreen(),
-        ),
-      ),
-      GoRoute(
-        path: RouteUri.text,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const TextScreen(),
-        ),
-      ),
-      GoRoute(
-        path: RouteUri.buttons,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const ButtonsScreen(),
-        ),
-      ),
-      GoRoute(
-        path: RouteUri.dialogs,
-        pageBuilder: (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: const DialogsScreen(),
-        ),
-      ),
+
       GoRoute(
         path: RouteUri.login,
         pageBuilder: (context, state) => NoTransitionPage<void>(
@@ -138,29 +85,37 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           );
         },
       ),
+
       GoRoute(
-        path: RouteUri.crud,
+        path: RouteUri.userDetail,
         pageBuilder: (context, state) {
           return NoTransitionPage<void>(
             key: state.pageKey,
-            child: const CrudScreen(),
+            child: UserDetailScreen(id: state.uri.queryParameters['id'] ?? ''),
           );
         },
       ),
       GoRoute(
-        path: RouteUri.crudDetail,
+        path: RouteUri.scooterDetail,
         pageBuilder: (context, state) {
           return NoTransitionPage<void>(
             key: state.pageKey,
-            child: CrudDetailScreen(id: state.uri.queryParameters['id'] ?? ''),
+            child: ScooterDetailScreen(id: state.uri.queryParameters['id'] ?? ''),
           );
         },
       ),
       GoRoute(
-        path: RouteUri.iframe,
+        path: RouteUri.scooters,
         pageBuilder: (context, state) => NoTransitionPage<void>(
           key: state.pageKey,
-          child: const IFrameDemoScreen(),
+          child: const ScooterScreen(),
+        ),
+      ),
+      GoRoute(
+        path: RouteUri.users,
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: const UserScreen(),
         ),
       ),
     ],

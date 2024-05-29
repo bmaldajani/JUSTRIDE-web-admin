@@ -11,14 +11,14 @@ import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
 
-class CrudScreen extends StatefulWidget {
-  const CrudScreen({super.key});
+class UserScreen extends StatefulWidget {
+  const UserScreen({super.key});
 
   @override
-  State<CrudScreen> createState() => _CrudScreenState();
+  State<UserScreen> createState() => _UserScreenState();
 }
 
-class _CrudScreenState extends State<CrudScreen> {
+class _UserScreenState extends State<UserScreen> {
   final _scrollController = ScrollController();
   final _formKey = GlobalKey<FormBuilderState>();
 
@@ -29,8 +29,8 @@ class _CrudScreenState extends State<CrudScreen> {
     super.initState();
 
     _dataSource = DataSource(
-      onDetailButtonPressed: (data) => GoRouter.of(context).go('${RouteUri.crudDetail}?id=${data['id']}'),
-      onDeleteButtonPressed: (data) {},
+      onDetailButtonPressed: (data) => GoRouter.of(context).go('${RouteUri.userDetail}?id=${data['id']}'),
+      onDeleteButtonPressed: (data) => {},
     );
   }
 
@@ -52,7 +52,7 @@ class _CrudScreenState extends State<CrudScreen> {
         padding: const EdgeInsets.all(kDefaultPadding),
         children: [
           Text(
-            'CRUD',
+            'Users',
             style: themeData.textTheme.headlineMedium,
           ),
           Padding(
@@ -63,7 +63,7 @@ class _CrudScreenState extends State<CrudScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const CardHeader(
-                    title: 'CRUD',
+                    title: 'users',
                   ),
                   CardBody(
                     child: Column(
@@ -130,7 +130,7 @@ class _CrudScreenState extends State<CrudScreen> {
                                         height: 40.0,
                                         child: ElevatedButton(
                                           style: themeData.extension<AppButtonTheme>()!.successElevated,
-                                          onPressed: () => GoRouter.of(context).go(RouteUri.crudDetail),
+                                          onPressed: () => GoRouter.of(context).go(RouteUri.userDetail),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,10 +180,9 @@ class _CrudScreenState extends State<CrudScreen> {
                                         showCheckboxColumn: false,
                                         showFirstLastButtons: true,
                                         columns: const [
-                                          DataColumn(label: Text('No.'), numeric: true),
-                                          DataColumn(label: Text('Item')),
-                                          DataColumn(label: Text('Price'), numeric: true),
-                                          DataColumn(label: Text('Date')),
+                                          DataColumn(label: Text('ID'), numeric: true),
+                                          DataColumn(label: Text('Name')),
+                                          DataColumn(label: Text('Email')),
                                           DataColumn(label: Text('Actions')),
                                         ],
                                       ),
@@ -203,38 +202,35 @@ class _CrudScreenState extends State<CrudScreen> {
           ),
         ],
       ),
-    );
-  }
+    );  }
 }
 
 class DataSource extends DataTableSource {
-  final void Function(Map<String, dynamic> data) onDetailButtonPressed;
-  final void Function(Map<String, dynamic> data) onDeleteButtonPressed;
+  final void Function(Map<String, dynamic>) onDetailButtonPressed;
+  final void Function(Map<String, dynamic>) onDeleteButtonPressed;
+
+  void deleteUser(Map<String, dynamic> data) {
+    _data.remove(data);
+  }
 
   final _data = List.generate(200, (index) {
     return {
       'id': index + 1,
-      'no': index + 1,
-      'item': 'Item ${index + 1}',
-      'price': Random().nextInt(10000),
-      'date': '2022-06-30',
+      'username': 'bashardajani',
+      'email': 'bashardajani@gmail.com',
     };
   });
 
-  DataSource({
-    required this.onDetailButtonPressed,
-    required this.onDeleteButtonPressed,
-  });
+  DataSource({required this.onDetailButtonPressed, required this.onDeleteButtonPressed});
 
   @override
   DataRow? getRow(int index) {
     final data = _data[index];
 
     return DataRow.byIndex(index: index, cells: [
-      DataCell(Text(data['no'].toString())),
-      DataCell(Text(data['item'].toString())),
-      DataCell(Text(data['price'].toString())),
-      DataCell(Text(data['date'].toString())),
+      DataCell(Text(data['id'].toString())),
+      DataCell(Text(data['username'].toString())),
+      DataCell(Text(data['email'].toString())),
       DataCell(Builder(
         builder: (context) {
           return Row(
@@ -249,7 +245,7 @@ class DataSource extends DataTableSource {
                 ),
               ),
               OutlinedButton(
-                onPressed: () => onDeleteButtonPressed.call(data),
+                onPressed: () => deleteUser(data), //onDeleteButtonPressed.call(data),
                 style: Theme.of(context).extension<AppButtonTheme>()!.errorOutlined,
                 child: Text(Lang.of(context).crudDelete),
               ),
@@ -260,12 +256,9 @@ class DataSource extends DataTableSource {
     ]);
   }
 
-  @override
   bool get isRowCountApproximate => false;
 
-  @override
   int get rowCount => _data.length;
 
-  @override
   int get selectedRowCount => 0;
 }

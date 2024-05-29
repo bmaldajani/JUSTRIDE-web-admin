@@ -11,30 +11,32 @@ import 'package:web_admin/utils/app_focus_helper.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
 
-class CrudDetailScreen extends StatefulWidget {
+class UserDetailScreen extends StatefulWidget {
   final String id;
 
-  const CrudDetailScreen({
+  const UserDetailScreen({
     super.key,
     required this.id,
   });
 
   @override
-  State<CrudDetailScreen> createState() => _CrudDetailScreenState();
+  State<UserDetailScreen> createState() => _UserDetailScreenState();
 }
 
-class _CrudDetailScreenState extends State<CrudDetailScreen> {
+class _UserDetailScreenState extends State<UserDetailScreen> {
   final _formKey = GlobalKey<FormBuilderState>();
-  final _formData = FormData();
+  late User _user;
 
   Future<bool>? _future;
 
   Future<bool> _getDataAsync() async {
     if (widget.id.isNotEmpty) {
-      await Future.delayed(const Duration(seconds: 1), () {
-        _formData.id = widget.id;
-        _formData.item = 'Item name';
-        _formData.price = '1234.99';
+      await Future.delayed(const Duration(seconds: 1),() {
+        _user = User(
+          id: widget.id,
+          name: 'User name',
+          email: 'user@example.com',
+        );
       });
     }
 
@@ -62,7 +64,7 @@ class _CrudDetailScreenState extends State<CrudDetailScreen> {
             title: lang.recordSubmittedSuccessfully,
             width: kDialogWidth,
             btnOkText: 'OK',
-            btnOkOnPress: () => GoRouter.of(context).go(RouteUri.crud),
+            btnOkOnPress: () => GoRouter.of(context).go(RouteUri.users),
           );
 
           d.show();
@@ -93,7 +95,7 @@ class _CrudDetailScreenState extends State<CrudDetailScreen> {
           title: lang.recordDeletedSuccessfully,
           width: kDialogWidth,
           btnOkText: 'OK',
-          btnOkOnPress: () => GoRouter.of(context).go(RouteUri.crud),
+          btnOkOnPress: () => GoRouter.of(context).go(RouteUri.users),
         );
 
         d.show();
@@ -106,14 +108,20 @@ class _CrudDetailScreenState extends State<CrudDetailScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _user = User(id: '');
+  }
+
+  @override
   Widget build(BuildContext context) {
     final lang = Lang.of(context);
     final themeData = Theme.of(context);
 
-    final pageTitle = 'CRUD - ${widget.id.isEmpty ? lang.crudNew : lang.crudDetail}';
+    final pageTitle = 'User Detail - ${widget.id.isEmpty ? lang.newUser : lang.editUser}';
 
     return PortalMasterLayout(
-      selectedMenuUri: RouteUri.crud,
+      selectedMenuUri: RouteUri.users,
       body: ListView(
         padding: const EdgeInsets.all(kDefaultPadding),
         children: [
@@ -171,126 +179,132 @@ class _CrudDetailScreenState extends State<CrudDetailScreen> {
     final lang = Lang.of(context);
     final themeData = Theme.of(context);
 
-    return FormBuilder(
+    return Form(
       key: _formKey,
-      autovalidateMode: AutovalidateMode.disabled,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
-            child: FormBuilderTextField(
-              name: 'item',
-              decoration: const InputDecoration(
-                labelText: 'Item',
-                hintText: 'Item',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
+            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
+            child: TextFormField(
+              decoration: InputDecoration(
+                labelText: lang.username,
+                hintText: 'Enter user\'s name',
               ),
-              initialValue: _formData.item,
+              controller: _userNameController,
               validator: FormBuilderValidators.required(),
-              onSaved: (value) => (_formData.item = value ?? ''),
+              onSaved: (value) => _user.name = value ?? '',
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(bottom: kDefaultPadding * 2.0),
-            child: FormBuilderTextField(
-              name: 'price',
-              decoration: const InputDecoration(
-                labelText: 'Price',
-                hintText: 'Price',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
+            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
+            child: TextFormField(
+              decoration: InputDecoration(
+                labelText: lang.userEmail,
+                hintText: 'Enter user\'s email',
               ),
-              initialValue: _formData.price,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              controller: _userEmailController,
               validator: FormBuilderValidators.required(),
-              onSaved: (value) => (_formData.price = value ?? ''),
+              onSaved: (value) => _user.email = value ?? '',
             ),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                height: 40.0,
-                child: ElevatedButton(
-                  style: themeData.extension<AppButtonTheme>()!.secondaryElevated,
-                  onPressed: () => GoRouter.of(context).go(RouteUri.crud),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                        child: Icon(
-                          Icons.arrow_circle_left_outlined,
-                          size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: 40.0,
+                  child: ElevatedButton(
+                    style: themeData.extension<AppButtonTheme>()!.secondaryElevated,
+                    onPressed: () => GoRouter.of(context).go(RouteUri.users),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
+                          child: Icon(
+                            Icons.arrow_circle_left_outlined,
+                            size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                          ),
                         ),
-                      ),
-                      Text(lang.crudBack),
-                    ],
+                        Text(lang.userBack),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              Visibility(
-                visible: widget.id.isNotEmpty,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: kDefaultPadding),
-                  child: SizedBox(
-                    height: 40.0,
-                    child: ElevatedButton(
-                      style: themeData.extension<AppButtonTheme>()!.errorElevated,
-                      onPressed: () => _doDelete(context),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                            child: Icon(
-                              Icons.delete_rounded,
-                              size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                const Spacer(),
+                Visibility(
+                  visible: widget.id.isNotEmpty,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: kDefaultPadding),
+                    child: SizedBox(
+                      height: 40.0,
+                      child: ElevatedButton(
+                        style: themeData.extension<AppButtonTheme>()!.errorElevated,
+                        onPressed: () => _doDelete(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
+                              child: Icon(
+                                Icons.delete_rounded,
+                                size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                              ),
                             ),
-                          ),
-                          Text(lang.crudDelete),
-                        ],
+                            Text(lang.crudDelete),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: 40.0,
-                child: ElevatedButton(
-                  style: themeData.extension<AppButtonTheme>()!.successElevated,
-                  onPressed: () => _doSubmit(context),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                        child: Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                SizedBox(
+                  height: 40.0,
+                  child: ElevatedButton(
+                    style: themeData.extension<AppButtonTheme>()!.successElevated,
+                    onPressed: () => _doSubmit(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
+                          child: Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                          ),
                         ),
-                      ),
-                      Text(lang.submit),
-                    ],
+                        Text(lang.submit),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 }
+class User {
+  String id;
+  String name;
+  String email;
+  String phone;
 
-class FormData {
-  String id = '';
-  String item = '';
-  String price = '';
+  User({
+    required this.id,
+    this.name = '',
+    this.email = '',
+    this.phone = '',
+  });
 }
+
+final _userNameController = TextEditingController();
+final _userEmailController = TextEditingController();
+final _userPhoneController = TextEditingController();
