@@ -76,22 +76,26 @@
   </style>
 <script>
   // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+  import { initializeApp } from "firebase/app";
+  import { getAnalytics } from "firebase/analytics";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyALIFzCQ0Zv-YblJheZWkfDBni6GCw28oA",
-  authDomain: "justride-116a0.firebaseapp.com",
-  projectId: "justride-116a0",
-  storageBucket: "justride-116a0.appspot.com",
-  messagingSenderId: "434330513806",
-  appId: "1:434330513806:web:a6fefdbc78301026a0b4df"
-};
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyA_sTtV6ofRWBtcvLrWYURwaGAeZnloGzk",
+    authDomain: "scooterrentalapplication.firebaseapp.com",
+    projectId: "scooterrentalapplication",
+    storageBucket: "scooterrentalapplication.appspot.com",
+    messagingSenderId: "279262660937",
+    appId: "1:279262660937:web:d9bf1197ff5ffea06cf298",
+    measurementId: "G-7YMESLXCYF"
+  };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
   </script>
   <script>
     // The value below is injected by flutter build, do not touch.

@@ -187,17 +187,6 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
-            child: TextFormField(
-              decoration: InputDecoration(
-                labelText: "Scooter name",
-                hintText: 'Enter scooter\'s name',
-              ),
-              controller: _scooterNameController,
-              validator: FormBuilderValidators.required(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
             child: DropdownButtonFormField<String>(
               decoration: InputDecoration(
                 labelText: "Status",
