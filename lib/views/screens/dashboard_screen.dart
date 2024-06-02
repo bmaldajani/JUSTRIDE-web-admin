@@ -56,40 +56,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   runSpacing: kDefaultPadding,
                   children: [
                     SummaryCard(
-                      title: lang.newOrders(2),
-                      value: '150',
-                      icon: Icons.shopping_cart_rounded,
+                      title: "no of scooters",
+                      value: '115',
+                      icon: Icons.electric_scooter,
                       backgroundColor: appColorScheme.info,
                       textColor: themeData.colorScheme.onPrimary,
                       iconColor: Colors.black12,
-                      width: summaryCardWidth,
+                      width: summaryCardWidth*2,
                     ),
                     SummaryCard(
-                      title: lang.todaySales,
-                      value: '+12%',
-                      icon: Icons.ssid_chart_rounded,
+                      title: "no of users",
+                      value: '517',
+                      icon: Icons.people,
                       backgroundColor: appColorScheme.success,
                       textColor: themeData.colorScheme.onPrimary,
                       iconColor: Colors.black12,
-                      width: summaryCardWidth,
-                    ),
-                    SummaryCard(
-                      title: lang.newUsers(2),
-                      value: '44',
-                      icon: Icons.group_add_rounded,
-                      backgroundColor: appColorScheme.warning,
-                      textColor: appColorScheme.buttonTextBlack,
-                      iconColor: Colors.black12,
-                      width: summaryCardWidth,
-                    ),
-                    SummaryCard(
-                      title: lang.pendingIssues(2),
-                      value: '0',
-                      icon: Icons.report_gmailerrorred_rounded,
-                      backgroundColor: appColorScheme.error,
-                      textColor: themeData.colorScheme.onPrimary,
-                      iconColor: Colors.black12,
-                      width: summaryCardWidth,
+                      width: summaryCardWidth*2,
                     ),
                   ],
                 );
@@ -133,7 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   columns: const [
                                     DataColumn(label: Text('No.'), numeric: true),
                                     DataColumn(label: Text('Date')),
-                                    DataColumn(label: Text('Item')),
+                                    DataColumn(label: Texflutterfire configuret('Item')),
                                     DataColumn(label: Text('Price'), numeric: true),
                                   ],
                                   rows: List.generate(5, (index) {
@@ -153,34 +135,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                         );
                       },
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.center,
-                    child: Padding(
-                      padding: const EdgeInsets.all(kDefaultPadding),
-                      child: SizedBox(
-                        height: 40.0,
-                        width: 120.0,
-                        child: ElevatedButton(
-                          onPressed: () {},
-                          style: themeData.extension<AppButtonTheme>()!.infoElevated,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                                child: Icon(
-                                  Icons.visibility_rounded,
-                                  size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
-                                ),
-                              ),
-                              const Text('View All'),
-                            ],
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ],

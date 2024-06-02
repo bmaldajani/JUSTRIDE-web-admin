@@ -213,12 +213,27 @@ class Lang {
       args: [],
     );
   }
-
+  String get userBack {
+    return Intl.message(
+      'Back',
+      name: 'userback',
+      desc: '',
+      args: [],
+    );
+  }
   /// `Delete`
   String get crudDelete {
     return Intl.message(
       'Delete',
       name: 'crudDelete',
+      desc: '',
+      args: [],
+    );
+  }
+  String get delete {
+    return Intl.message(
+      'Delete',
+      name: 'UserDelete',
       desc: '',
       args: [],
     );
@@ -234,8 +249,25 @@ class Lang {
     );
   }
 
+  String get editUser {
+    return Intl.message(
+      'Detail',
+      name: 'crudDetail',
+      desc: '',
+      args: [],
+    );
+  }
+
   /// `New`
   String get crudNew {
+    return Intl.message(
+      'New',
+      name: 'crudNew',
+      desc: '',
+      args: [],
+    );
+  }
+  String get newUser {
     return Intl.message(
       'New',
       name: 'crudNew',
@@ -259,6 +291,14 @@ class Lang {
     return Intl.message(
       'Dashboard',
       name: 'dashboard',
+      desc: '',
+      args: [],
+    );
+  }
+  String get Scooter {
+    return Intl.message(
+      'Scooter',
+      name: 'Scooter',
       desc: '',
       args: [],
     );
@@ -882,6 +922,47 @@ class Lang {
     );
   }
 
+  String get usernameHint {
+    return Intl.message(
+      'Username Hint',
+      name: 'username Hint',
+      desc: '',
+      args: [],
+    );
+  }
+  String get userEmail {
+    return Intl.message(
+      'User Email',
+      name: 'User Email',
+      desc: '',
+      args: [],
+    );
+  }
+
+  String get userEmailHint {
+    return Intl.message(
+      'User Email Hint',
+      name: 'user Email Hint',
+      desc: '',
+      args: [],
+    );
+  }String get userPhone {
+    return Intl.message(
+      'User Phone',
+      name: 'User Phone',
+      desc: '',
+      args: [],
+    );
+  }
+
+  String get userPhoneHint {
+    return Intl.message(
+      'User Phone Hint',
+      name: 'user Phone Hint',
+      desc: '',
+      args: [],
+    );
+  }
   /// `Yes`
   String get yes {
     return Intl.message(
@@ -891,6 +972,16 @@ class Lang {
       args: [],
     );
   }
+
+  get recentScooterActivity => null;
+
+  get todayRides => null;
+
+  recentRides(int i) {}
+
+  pendingMaintenance(int i) {}
+
+  availableScooters(int i) {}
 }
 
 class AppLocalizationDelegate extends LocalizationsDelegate<Lang> {

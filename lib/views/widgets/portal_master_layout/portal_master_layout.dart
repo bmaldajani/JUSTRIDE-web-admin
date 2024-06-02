@@ -44,6 +44,8 @@ class PortalMasterLayout extends StatelessWidget {
     this.persistentFooterButtons,
   });
 
+  get localeMenuConfigs => null;
+
   @override
   Widget build(BuildContext context) {
     final mediaQueryData = MediaQuery.of(context);
