@@ -9,14 +9,14 @@ import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
 
-class DashboardReportScreen extends StatefulWidget {
-  const DashboardReportScreen({super.key});
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
 
   @override
-  State<DashboardReportScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardReportScreen> {
+class _DashboardScreenState extends State<DashboardScreen> {
   final _dataTableHorizontalScrollController = ScrollController();
 
   @override
@@ -56,8 +56,8 @@ class _DashboardScreenState extends State<DashboardReportScreen> {
                   runSpacing: kDefaultPadding,
                   children: [
                     SummaryCard(
-                      title: "number of reports",
-                      value: '',
+                      title: "no of scooters",
+                      value: '115',
                       icon: Icons.electric_scooter,
                       backgroundColor: appColorScheme.info,
                       textColor: themeData.colorScheme.onPrimary,
@@ -65,8 +65,8 @@ class _DashboardScreenState extends State<DashboardReportScreen> {
                       width: summaryCardWidth*2,
                     ),
                     SummaryCard(
-                      title: "number of users",
-                      value: '',
+                      title: "no of users",
+                      value: '517',
                       icon: Icons.people,
                       backgroundColor: appColorScheme.success,
                       textColor: themeData.colorScheme.onPrimary,
@@ -115,16 +115,16 @@ class _DashboardScreenState extends State<DashboardReportScreen> {
                                   columns: const [
                                     DataColumn(label: Text('No.'), numeric: true),
                                     DataColumn(label: Text('Date')),
-                                    DataColumn(label: Text('Report')),
-                                    DataColumn(label: Text('Type'), numeric: true),
+                                    DataColumn(label: Texflutterfire configuret('Item')),
+                                    DataColumn(label: Text('Price'), numeric: true),
                                   ],
                                   rows: List.generate(5, (index) {
                                     return DataRow.byIndex(
                                       index: index,
                                       cells: [
                                         DataCell(Text('#${index + 1}')),
-                                        const DataCell(Text('')),
-                                        DataCell(Text('Report ${index + 1}')),
+                                        const DataCell(Text('2022-06-30')),
+                                        DataCell(Text('Item ${index + 1}')),
                                         DataCell(Text('${Random().nextInt(10000)}')),
                                       ],
                                     );
