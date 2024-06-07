@@ -14,7 +14,16 @@ import 'package:web_admin/views/screens/login_screen.dart';
 import 'package:web_admin/views/screens/logout_screen.dart';
 import 'package:web_admin/views/screens/my_profile_screen.dart';
 import 'package:web_admin/views/screens/register_screen.dart';
+<<<<<<< Updated upstream
 import 'package:web_admin/views/screens/text_screen.dart';
+=======
+import 'package:web_admin/views/screens/scooter_detail_screen.dart';
+import 'package:web_admin/views/screens/scooters_screen.dart';
+import 'package:web_admin/views/screens/user_detail_screen.dart';
+import 'package:web_admin/views/screens/users_screen.dart';
+import 'package:web_admin/views/screens/stations_screen.dart';
+import 'package:web_admin/views/screens/station_detail_screen.dart';
+>>>>>>> Stashed changes
 
 class RouteUri {
   static const String home = '/';
@@ -30,9 +39,19 @@ class RouteUri {
   static const String error404 = '/404';
   static const String login = '/login';
   static const String register = '/register';
+<<<<<<< Updated upstream
   static const String crud = '/crud';
   static const String crudDetail = '/crud-detail';
   static const String iframe = '/iframe';
+=======
+  static const String userDetail = '/user-detail';
+  static const String scooters = '/scooters'; // Add this constant
+  static const String scooterDetail = '/scooter-detail';
+  static const String users = '/users';
+  static const String stations = '/stations';
+  static const String stationsDetail = '/stationsDetail';
+   // Add this constant
+>>>>>>> Stashed changes
 }
 
 const List<String> unrestrictedRoutes = [
@@ -63,7 +82,7 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
         path: RouteUri.dashboard,
         pageBuilder: (context, state) => NoTransitionPage<void>(
           key: state.pageKey,
-          child: const DashboardScreen(),
+          child: const DashboardReportScreen(),
         ),
       ),
       GoRoute(
@@ -139,6 +158,7 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
         },
       ),
       GoRoute(
+<<<<<<< Updated upstream
         path: RouteUri.crud,
         pageBuilder: (context, state) {
           return NoTransitionPage<void>(
@@ -147,6 +167,14 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           );
         },
       ),
+=======
+  path: RouteUri.stationsDetail,
+  builder: (context, state) {
+    final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+    return StationDetailScreen(id: id);
+  },
+),
+>>>>>>> Stashed changes
       GoRoute(
         path: RouteUri.crudDetail,
         pageBuilder: (context, state) {
@@ -163,6 +191,22 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           child: const IFrameDemoScreen(),
         ),
       ),
+      GoRoute(
+        path: RouteUri.stations, // Define the path for the StationsScreen route
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: const StationsScreen(), // Instantiate the StationsScreen widget
+        ),
+      ),
+      GoRoute(
+      path: RouteUri.stationsDetail, // Define the path for the StationDetailScreen route
+      builder: (context, state) {
+        // Extract the ID from the route parameters
+        final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+        // Instantiate the StationDetailScreen widget using the named constructor
+        return StationDetailScreen(id: id);
+      },
+    ),
     ],
     redirect: (context, state) {
       if (unrestrictedRoutes.contains(state.matchedLocation)) {

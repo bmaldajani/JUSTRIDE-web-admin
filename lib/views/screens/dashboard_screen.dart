@@ -9,14 +9,14 @@ import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class DashboardReportScreen extends StatefulWidget {
+  const DashboardReportScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardReportScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardReportScreen> {
   final _dataTableHorizontalScrollController = ScrollController();
 
   @override
@@ -56,18 +56,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   runSpacing: kDefaultPadding,
                   children: [
                     SummaryCard(
+<<<<<<< Updated upstream
                       title: lang.newOrders(2),
                       value: '150',
                       icon: Icons.shopping_cart_rounded,
+=======
+                      title: "number of reports",
+                      value: '',
+                      icon: Icons.electric_scooter,
+>>>>>>> Stashed changes
                       backgroundColor: appColorScheme.info,
                       textColor: themeData.colorScheme.onPrimary,
                       iconColor: Colors.black12,
                       width: summaryCardWidth,
                     ),
                     SummaryCard(
+<<<<<<< Updated upstream
                       title: lang.todaySales,
                       value: '+12%',
                       icon: Icons.ssid_chart_rounded,
+=======
+                      title: "number of users",
+                      value: '',
+                      icon: Icons.people,
+>>>>>>> Stashed changes
                       backgroundColor: appColorScheme.success,
                       textColor: themeData.colorScheme.onPrimary,
                       iconColor: Colors.black12,
@@ -133,16 +145,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   columns: const [
                                     DataColumn(label: Text('No.'), numeric: true),
                                     DataColumn(label: Text('Date')),
+<<<<<<< Updated upstream
                                     DataColumn(label: Text('Item')),
                                     DataColumn(label: Text('Price'), numeric: true),
+=======
+                                    DataColumn(label: Text('Report')),
+                                    DataColumn(label: Text('Type'), numeric: true),
+>>>>>>> Stashed changes
                                   ],
                                   rows: List.generate(5, (index) {
                                     return DataRow.byIndex(
                                       index: index,
                                       cells: [
                                         DataCell(Text('#${index + 1}')),
-                                        const DataCell(Text('2022-06-30')),
-                                        DataCell(Text('Item ${index + 1}')),
+                                        const DataCell(Text('')),
+                                        DataCell(Text('Report ${index + 1}')),
                                         DataCell(Text('${Random().nextInt(10000)}')),
                                       ],
                                     );
