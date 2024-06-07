@@ -1,8 +1,8 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
@@ -10,34 +10,95 @@ import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
 import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
+import 'package:web_admin/views/screens/station_detail_screen.dart';
 
-class UserScreen extends StatefulWidget {
-  const UserScreen({super.key});
+class StationsScreen extends StatefulWidget {
+  const StationsScreen({Key? key});
 
   @override
-  State<UserScreen> createState() => _UserScreenState();
+  State<StationsScreen> createState() => _StationsScreenState();
 }
 
-class _UserScreenState extends State<UserScreen> {
+class _StationsScreenState extends State<StationsScreen> {
   final _scrollController = ScrollController();
   final _formKey = GlobalKey<FormBuilderState>();
-
-  late DataSource _dataSource;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final List<Station> _stations = [];
 
   @override
   void initState() {
     super.initState();
-
-    _dataSource = DataSource(
-      onDetailButtonPressed: (data) => GoRouter.of(context).go('${RouteUri.userDetail}?id=${data['id']}'),
-      onDeleteButtonPressed: (data) => {},
-    );
+    _fetchStations();
   }
+
+  Future<void> _fetchStations() async {
+  final QuerySnapshot stationSnapshot = await _firestore.collection('stations').get();
+  
+  final List<Station> stations = await Future.wait(stationSnapshot.docs.map((stationDoc) async {
+    final stationData = stationDoc.data() as Map<String, dynamic>;
+    final List<String> scooterIds = List<String>.from(stationData['scooters']);
+    
+    final List<Scooter> scooters = [];
+    for (String scooterId in scooterIds) {
+      final scooterDoc = await _firestore.collection('scooters').doc(scooterId).get();
+      if (scooterDoc.exists) {
+        final scooterData = scooterDoc.data() as Map<String, dynamic>;
+        scooters.add(Scooter(
+          id: scooterDoc.id,
+          location: scooterData['location'],
+          status: scooterData['status'],
+          batteryLevel: scooterData['batteryLevel'],
+        ));
+      }
+    }
+    
+    return Station(
+      id: stationDoc.id,
+      name: stationData['name'],
+      location: Location(
+        name: stationData['location']['name'],
+        latitude: stationData['location']['latitude'].toDouble(),
+        longitude: stationData['location']['longitude'].toDouble(),
+      ),
+      scooters: scooters,
+    );
+  }).toList());
+
+  setState(() {
+    _stations.clear();
+    _stations.addAll(stations);
+  });
+}
+
+  Future<void> _addStation(Station station) async {
+  final docRef = await _firestore.collection('stations').add({
+    'name': station.name,
+    'location': {
+      'name': station.location.name,
+      'latitude': station.location.latitude,
+      'longitude': station.location.longitude,
+    },
+    'scooters': station.scooters.map((scooter) => scooter.id).toList(),
+  });
+
+  // Update the station with the generated ID
+  final newStation = Station(
+    id: docRef.id,
+    name: station.name,
+    location: station.location,
+    scooters: station.scooters,
+  );
+
+  setState(() {
+    _stations.add(newStation);
+  });
+}
+
+
 
   @override
   void dispose() {
     _scrollController.dispose();
-
     super.dispose();
   }
 
@@ -52,7 +113,7 @@ class _UserScreenState extends State<UserScreen> {
         padding: const EdgeInsets.all(kDefaultPadding),
         children: [
           Text(
-            'Users',
+            'Stations',
             style: themeData.textTheme.headlineMedium,
           ),
           Padding(
@@ -63,7 +124,7 @@ class _UserScreenState extends State<UserScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const CardHeader(
-                    title: 'users',
+                    title: 'Stations',
                   ),
                   CardBody(
                     child: Column(
@@ -130,7 +191,7 @@ class _UserScreenState extends State<UserScreen> {
                                         height: 40.0,
                                         child: ElevatedButton(
                                           style: themeData.extension<AppButtonTheme>()!.successElevated,
-                                          onPressed: () => GoRouter.of(context).go(RouteUri.userDetail),
+                                          onPressed: () => _showAddStationDialog(context),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,8 +208,8 @@ class _UserScreenState extends State<UserScreen> {
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                  ],
+                                ),
                                 ],
                               ),
                             ),
@@ -174,15 +235,28 @@ class _UserScreenState extends State<UserScreen> {
                                         cardTheme: appDataTableTheme.cardTheme,
                                         dataTableTheme: appDataTableTheme.dataTableThemeData,
                                       ),
-                                      child: PaginatedDataTable(
-                                        source: _dataSource,
+                                      child:PaginatedDataTable(
+                                       source: DataSource(
+                                       stations: _stations,
+                                       onDetailButtonPressed: (station) {
+                                      Navigator.push(
+                                      context,
+                                       MaterialPageRoute(
+                                       builder: (context) => StationDetailScreen(id: station.id),
+                                        ),
+                                       );
+                                       },
+                                       onDeleteButtonPressed: (station) => _deleteStation(station),
+                                         ),
                                         rowsPerPage: 20,
                                         showCheckboxColumn: false,
                                         showFirstLastButtons: true,
                                         columns: const [
-                                          DataColumn(label: Text('ID'), numeric: true),
+                                          DataColumn(label: Text('Station ID')),
                                           DataColumn(label: Text('Name')),
-                                          DataColumn(label: Text('Email')),
+                                          DataColumn(label: Text('Location')),
+                                          DataColumn(label: Text('Latitude')),
+                                          DataColumn(label: Text('Longitude')),
                                           DataColumn(label: Text('Actions')),
                                         ],
                                       ),
@@ -202,63 +276,230 @@ class _UserScreenState extends State<UserScreen> {
           ),
         ],
       ),
-    );  }
+    );
+  }
+
+Future<void> _deleteStation(Station station) async {
+  // Check if the station has scooters
+  if (station.scooters.isNotEmpty) {
+    // Show a dialog to select a destination station
+    final selectedStation = await showDialog<Station>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Select Destination Station for Scooters'),
+          content: DropdownButtonFormField<Station>(
+            value: null,
+            onChanged: (value) => Navigator.pop(context, value),
+            items: _stations
+                .where((s) => s.id != station.id) // Exclude the station being deleted
+                .map((s) {
+                  return DropdownMenuItem<Station>(
+                    value: s,
+                    child: Text(s.name),
+                  );
+                })
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), // Cancel
+              child: Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context); // Confirm
+              },
+              child: Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
+
+    // If a station is selected, move the scooters to that station
+    if (selectedStation != null) {
+      await _moveScootersToStation(station, selectedStation);
+    } else {
+      // Admin canceled the operation
+      return;
+    }
+  }
+
+  // Delete the station
+  await _firestore.collection('stations').doc(station.id).delete();
+  setState(() {
+    _stations.remove(station);
+  });
+}
+
+Future<void> _moveScootersToStation(Station sourceStation, Station destinationStation) async {
+  final WriteBatch batch = _firestore.batch();
+
+  // Update the scooters in Firestore to point to the destination station
+  for (final scooter in sourceStation.scooters) {
+    final scooterDocRef = _firestore.collection('scooters').doc(scooter.id);
+    batch.update(scooterDocRef, {'location': destinationStation.name});
+  }
+
+  // Update the scooters list in the destination station
+  final destinationStationDocRef = _firestore.collection('stations').doc(destinationStation.id);
+  final List<String> scooterIds = sourceStation.scooters.map((s) => s.id).toList();
+  batch.update(destinationStationDocRef, {
+    'scooters': FieldValue.arrayUnion(scooterIds),
+  });
+
+  // Commit the batch
+  await batch.commit();
+}
+
+
+  void _showAddStationDialog(BuildContext context) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController locationNameController = TextEditingController();
+    final TextEditingController latitudeController = TextEditingController();
+    final TextEditingController longitudeController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Station'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Station Name'),
+              ),
+              TextField(
+                controller: locationNameController,
+                decoration: const InputDecoration(labelText: 'Location Name'),
+              ),
+              TextField(
+                controller: latitudeController,
+                decoration: const InputDecoration(labelText: 'Latitude'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: longitudeController,
+                decoration: const InputDecoration(labelText: 'Longitude'),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final station = Station(
+                  id: '', // Firestore will generate this
+                  name: nameController.text,
+                  location: Location(
+                    name: locationNameController.text,
+                    latitude: double.tryParse(latitudeController.text) ?? 0.0,
+                    longitude: double.tryParse(longitudeController.text) ?? 0.0,
+                  ),
+                  scooters: [],
+                );
+                _addStation(station);
+                Navigator.pop(context);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class DataSource extends DataTableSource {
-  final void Function(Map<String, dynamic>) onDetailButtonPressed;
-  final void Function(Map<String, dynamic>) onDeleteButtonPressed;
+  final List<Station> stations;
+  final void Function(Station) onDetailButtonPressed;
+  final void Function(Station) onDeleteButtonPressed;
 
-  void deleteUser(Map<String, dynamic> data) {
-    _data.remove(data);
-  }
-
-  final _data = List.generate(200, (index) {
-    return {
-      'id': index + 1,
-      'username': 'bashardajani',
-      'email': 'bashardajani@gmail.com',
-    };
+  DataSource({
+    required this.stations,
+    required this.onDetailButtonPressed,
+    required this.onDeleteButtonPressed,
   });
-
-  DataSource({required this.onDetailButtonPressed, required this.onDeleteButtonPressed});
 
   @override
   DataRow? getRow(int index) {
-    final data = _data[index];
+    final station = stations[index];
 
-    return DataRow.byIndex(index: index, cells: [
-      DataCell(Text(data['id'].toString())),
-      DataCell(Text(data['username'].toString())),
-      DataCell(Text(data['email'].toString())),
-      DataCell(Builder(
-        builder: (context) {
-          return Row(
+    return DataRow.byIndex(
+      index: index,
+      cells: [
+        DataCell(Text(station.id)),
+        DataCell(Text(station.name)),
+        DataCell(Text(station.location.name)),
+        DataCell(Text(station.location.latitude.toString())),
+        DataCell(Text(station.location.longitude.toString())),
+        DataCell(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: kDefaultPadding),
                 child: OutlinedButton(
-                  onPressed: () => onDetailButtonPressed.call(data),
-                  style: Theme.of(context).extension<AppButtonTheme>()!.infoOutlined,
-                  child: Text(Lang.of(context).crudDetail),
+                  onPressed: () => onDetailButtonPressed.call(station),
+                  child: const Text('Detail'),
                 ),
               ),
               OutlinedButton(
-                onPressed: () => deleteUser(data), //onDeleteButtonPressed.call(data),
-                style: Theme.of(context).extension<AppButtonTheme>()!.errorOutlined,
-                child: Text(Lang.of(context).crudDelete),
+                onPressed: () => onDeleteButtonPressed.call(station),
+                child: const Text('Delete'),
               ),
             ],
-          );
-        },
-      )),
-    ]);
+          ),
+        ),
+      ],
+    );
   }
 
+  @override
+  int get rowCount => stations.length;
+
+  @override
   bool get isRowCountApproximate => false;
 
-  int get rowCount => _data.length;
-
+  @override
   int get selectedRowCount => 0;
+}
+
+class Station {
+  String id;
+  String name;
+  Location location;
+  final List<Scooter> scooters;
+
+  Station({ List<Scooter>? scooters,required this.id, required this.name, required this.location})
+   : this.scooters = scooters ?? [];
+}
+
+class Location {
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  Location({required this.name, required this.latitude, required this.longitude});
+}
+
+class Scooter {
+  final String id;
+  final String location;
+  final String status;
+  final int batteryLevel;
+
+  Scooter({
+    this.id = '', 
+    required this.location,
+    required this.status,
+    required this.batteryLevel,
+  });
 }

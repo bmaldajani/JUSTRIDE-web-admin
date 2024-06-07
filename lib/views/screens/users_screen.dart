@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:go_router/go_router.dart';
@@ -10,9 +9,10 @@ import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
 import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserScreen extends StatefulWidget {
-  const UserScreen({super.key});
+  const UserScreen({Key? key}) : super(key: key);
 
   @override
   State<UserScreen> createState() => _UserScreenState();
@@ -29,15 +29,24 @@ class _UserScreenState extends State<UserScreen> {
     super.initState();
 
     _dataSource = DataSource(
-      onDetailButtonPressed: (data) => GoRouter.of(context).go('${RouteUri.userDetail}?id=${data['id']}'),
-      onDeleteButtonPressed: (data) => {},
+      userService: FirebaseUserService(),
+      onDetailButtonPressed: (data) =>
+          GoRouter.of(context).go('${RouteUri.userDetail}?id=${data['id']}'),
+      onDeleteButtonPressed: (data) => {}, // Implement delete functionality if needed
     );
+
+    _fetchAndSetUsers();
+  }
+
+  Future<void> _fetchAndSetUsers() async {
+    await _dataSource.userService.fetchUsers();
+    _dataSource.notifyListeners(); // Notify listeners to refresh the DataTable
+    setState(() {}); // Update the UI after data is fetched
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
-
     super.dispose();
   }
 
@@ -63,7 +72,7 @@ class _UserScreenState extends State<UserScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const CardHeader(
-                    title: 'users',
+                    title: 'Users',
                   ),
                   CardBody(
                     child: Column(
@@ -180,9 +189,9 @@ class _UserScreenState extends State<UserScreen> {
                                         showCheckboxColumn: false,
                                         showFirstLastButtons: true,
                                         columns: const [
-                                          DataColumn(label: Text('ID'), numeric: true),
-                                          DataColumn(label: Text('Name')),
                                           DataColumn(label: Text('Email')),
+                                          DataColumn(label: Text('Phone Number')),
+                                          DataColumn(label: Text('Username')),
                                           DataColumn(label: Text('Actions')),
                                         ],
                                       ),
@@ -202,63 +211,78 @@ class _UserScreenState extends State<UserScreen> {
           ),
         ],
       ),
-    );  }
+    );
+  }
 }
 
 class DataSource extends DataTableSource {
+  final FirebaseUserService userService;
   final void Function(Map<String, dynamic>) onDetailButtonPressed;
   final void Function(Map<String, dynamic>) onDeleteButtonPressed;
 
-  void deleteUser(Map<String, dynamic> data) {
-    _data.remove(data);
-  }
-
-  final _data = List.generate(200, (index) {
-    return {
-      'id': index + 1,
-      'username': 'bashardajani',
-      'email': 'bashardajani@gmail.com',
-    };
+  DataSource({
+    required this.userService,
+    required this.onDetailButtonPressed,
+    required this.onDeleteButtonPressed,
   });
-
-  DataSource({required this.onDetailButtonPressed, required this.onDeleteButtonPressed});
 
   @override
   DataRow? getRow(int index) {
-    final data = _data[index];
-
-    return DataRow.byIndex(index: index, cells: [
-      DataCell(Text(data['id'].toString())),
-      DataCell(Text(data['username'].toString())),
-      DataCell(Text(data['email'].toString())),
-      DataCell(Builder(
-        builder: (context) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
+    if (index >= userService.userCount) {
+      return null;
+    }
+    final user = userService.getUser(index);
+    return DataRow.byIndex(
+      index: index,
+      cells: [
+        DataCell(Text(user['email'] ?? '')),
+        DataCell(Text(user['phone_number'] ?? '')),
+        DataCell(Text(user['username'] ?? '')),
+        DataCell(
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(right: kDefaultPadding),
-                child: OutlinedButton(
-                  onPressed: () => onDetailButtonPressed.call(data),
-                  style: Theme.of(context).extension<AppButtonTheme>()!.infoOutlined,
-                  child: Text(Lang.of(context).crudDetail),
-                ),
+              OutlinedButton(
+                onPressed: () => onDetailButtonPressed(user),
+                child: Text('Details'),
               ),
               OutlinedButton(
-                onPressed: () => deleteUser(data), //onDeleteButtonPressed.call(data),
-                style: Theme.of(context).extension<AppButtonTheme>()!.errorOutlined,
-                child: Text(Lang.of(context).crudDelete),
+                onPressed: () => onDeleteButtonPressed(user),
+                child: Text('Delete'),
               ),
             ],
-          );
-        },
-      )),
-    ]);
+          ),
+        ),
+      ],
+    );
   }
 
+  @override
   bool get isRowCountApproximate => false;
 
-  int get rowCount => _data.length;
+  @override
+  int get rowCount => userService.userCount;
 
+  @override
   int get selectedRowCount => 0;
+}
+
+class FirebaseUserService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  List<Map<String, dynamic>> _users = [];
+
+  Future<void> fetchUsers() async {
+    try {
+      final snapshot = await _firestore.collection('users').get();
+      _users = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      print("Fetched users: $_users");
+    } catch (e) {
+      print("Error fetching users: $e");
+    }
+  }
+
+  Map<String, dynamic> getUser(int index) {
+    return _users[index];
+  }
+
+  int get userCount => _users.length;
 }
