@@ -9,10 +9,10 @@ class Scooter {
   bool isAvailable;
 
   Scooter({
-    this.stationid = "1",
-    this.id = "1234",
-    this.location = "M4",
-    this.status = "availble",
+    this.stationid = "",
+    this.id = "",
+    this.location = "",
+    this.status = "",
     this.batteryLevel = 80,
     this.isBooked = false,
     this.isAvailable = true,
