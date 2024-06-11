@@ -1,54 +1,56 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:go_router/go_router.dart';
 import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
 import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
-import 'package:web_admin/utils/app_focus_helper.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
-
-import '../classes/scooter.dart';
 
 class ScooterDetailScreen extends StatefulWidget {
   final String id;
 
   const ScooterDetailScreen({
-    super.key,
+    Key? key,
     required this.id,
-  });
+  }) : super(key: key);
 
   @override
   State<ScooterDetailScreen> createState() => _ScooterDetailScreenState();
 }
 
 class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
-  final _formKey = GlobalKey<FormBuilderState>();
+  final _formKey = GlobalKey<FormState>();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late Scooter _scooter;
+  late List<String> _stations = [];
 
   Future<bool>? _future;
 
   Future<bool> _getDataAsync() async {
     if (widget.id.isNotEmpty) {
-      await Future.delayed(const Duration(seconds: 1), () {
+      final DocumentSnapshot scooterSnapshot = await _firestore.collection('scooters').doc(widget.id).get();
+      if (scooterSnapshot.exists) {
+        final data = scooterSnapshot.data() as Map<String, dynamic>;
         _scooter = Scooter(
-          id: widget.id,
-          status: 'available',
-          location: 'M4',
+          id: scooterSnapshot.id,
+          location: data['location'],
+          status: data['status'],
+          batteryLevel: data['batteryLevel'],
         );
-      });
+      }
     }
+
+    final QuerySnapshot stationSnapshot = await _firestore.collection('stations').get();
+    _stations = stationSnapshot.docs.map((doc) => doc['name'] as String).toList();
 
     return true;
   }
 
-  void _doSubmit(BuildContext context) {
-    AppFocusHelper.instance.requestUnfocus();
-
-    if (_formKey.currentState?.validate() ?? false) {
+  Future<void> _doSubmit(BuildContext context) async {
+    if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
       final lang = Lang.of(context);
@@ -59,7 +61,13 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
         title: lang.confirmSubmitRecord,
         width: kDialogWidth,
         btnOkText: lang.yes,
-        btnOkOnPress: () {
+        btnOkOnPress: () async {
+          await _firestore.collection('scooters').doc(widget.id).update({
+            'status': _scooter.status,
+            'location': _scooter.location,
+            'batteryLevel': _scooter.batteryLevel,
+          });
+
           final d = AwesomeDialog(
             context: context,
             dialogType: DialogType.success,
@@ -79,9 +87,7 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
     }
   }
 
-  void _doDelete(BuildContext context) {
-    AppFocusHelper.instance.requestUnfocus();
-
+  Future<void> _doDelete(BuildContext context) async {
     final lang = Lang.of(context);
 
     final dialog = AwesomeDialog(
@@ -90,7 +96,9 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
       title: lang.confirmDeleteRecord,
       width: kDialogWidth,
       btnOkText: lang.yes,
-      btnOkOnPress: () {
+      btnOkOnPress: () async {
+        await _firestore.collection('scooters').doc(widget.id).delete();
+
         final d = AwesomeDialog(
           context: context,
           dialogType: DialogType.success,
@@ -112,7 +120,7 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _scooter = Scooter(id: '');
+    _scooter = Scooter(id: '', location: '', status: '', batteryLevel: 0);
   }
 
   @override
@@ -188,12 +196,12 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
             child: DropdownButtonFormField<String>(
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Status",
                 hintText: 'Select scooter status',
               ),
-              value: _scooter.status,
-              items: ['available', 'booked', 'unavailable'].map((String value) {
+              value: _scooter.status.isNotEmpty ? _scooter.status : null,
+              items: ['available', 'unavailable', 'disabled'].map((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
                   child: Text(value),
@@ -204,25 +212,52 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
                   _scooter.status = value!;
                 });
               },
+              validator: (value) => value == null || value.isEmpty ? 'Please select a status' : null,
             ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
             child: DropdownButtonFormField<String>(
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Location",
                 hintText: 'Select scooter location',
               ),
-              value: _scooter.location,
-              items: ['M4', 'PH2', 'A2'].map((String value) {
+              value: _scooter.location.isNotEmpty ? _scooter.location : null,
+              items: _stations.map((String value) {
                 return DropdownMenuItem<String>(
                   value: value,
                   child: Text(value),
                 );
               }).toList(),
               onChanged: (value) {
-                setState(() {_scooter.location = value!;
+                setState(() {
+                  _scooter.location = value!;
                 });
+              },
+              validator: (value) => value == null || value.isEmpty ? 'Please select a location' : null,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
+            child: TextFormField(
+              decoration: const InputDecoration(
+                labelText: "Battery Level",
+                hintText: 'Enter battery level',
+              ),
+              initialValue: _scooter.batteryLevel.toString(),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a battery level';
+                }
+                              final int? batteryLevel = int.tryParse(value);
+                if (batteryLevel == null || batteryLevel < 0 || batteryLevel > 100) {
+                  return 'Please enter a valid battery level between 0 and 100';
+                }
+                return null;
+              },
+              onSaved: (value) {
+                _scooter.batteryLevel = int.parse(value!);
               },
             ),
           ),
@@ -247,7 +282,7 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
                             size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
                           ),
                         ),
-                        Text("Back"),
+                        const Text("back"),
                       ],
                     ),
                   ),
@@ -309,6 +344,35 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
     );
   }
 }
+class Scooter {
+  final String id;
+   String location;
+   String status;
+   int batteryLevel;
 
+  Scooter({
+    this.id = '', 
+    required this.location,
+    required this.status,
+    required this.batteryLevel,
+  });
+}
 
-final _scooterNameController = TextEditingController();
+class Station {
+  final String id;
+  final String name;
+  final Location location;
+  final List<Scooter> scooters;
+
+  Station({ List<Scooter>? scooters, required this.id, required this.name, required this.location})
+   : this.scooters = scooters ?? [];
+}
+
+class Location {
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  Location({required this.name, required this.latitude, required this.longitude});
+}
+

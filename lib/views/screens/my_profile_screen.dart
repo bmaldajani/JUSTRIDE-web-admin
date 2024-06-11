@@ -1,16 +1,19 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:image_picker_web/image_picker_web.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
-import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
 import 'package:web_admin/utils/app_focus_helper.dart';
-import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class MyProfileScreen extends StatefulWidget {
-  const MyProfileScreen({super.key});
+  const MyProfileScreen({Key? key}) : super(key: key);
 
   @override
   State<MyProfileScreen> createState() => _MyProfileScreenState();
@@ -20,16 +23,104 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   final _formKey = GlobalKey<FormBuilderState>();
   final _formData = FormData();
 
-  Future<bool>? _future;
+  bool _isLoading = true;
+  bool _isEditing = false;
 
-  Future<bool> _getDataAsync() async {
-    await Future.delayed(const Duration(seconds: 1), () {
-      _formData.userProfileImageUrl = 'https://picsum.photos/id/1005/300/300';
-      _formData.username = 'Admin ABC';
-      _formData.email = 'adminabc@email.com';
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchAdminData();
+  }
 
-    return true;
+  Future<void> _fetchAdminData() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId != null) {
+      try {
+        final adminDoc =
+            await FirebaseFirestore.instance.collection('admins').doc(userId).get();
+
+        if (adminDoc.exists) {
+          setState(() {
+            _formData.username = adminDoc.get('username') ?? '';
+            _formData.email = adminDoc.get('email') ?? '';
+            _formData.profilePictureUrl = adminDoc.get('profilePictureUrl') ?? '';
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _isLoading = false;
+          });
+          print("Admin document does not exist.");
+        }
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        print("Error fetching admin data: $e");
+      }
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      print("User is not logged in.");
+    }
+  }
+
+  Future<void> _saveAdminData() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId != null) {
+      try {
+        await FirebaseFirestore.instance.collection('admins').doc(userId).update({
+          'username': _formData.username,
+          'email': _formData.email,
+          'profilePictureUrl': _formData.profilePictureUrl,
+        });
+        print("Admin data saved successfully.");
+      } catch (e) {
+        print("Error saving admin data: $e");
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final pickedFile = await ImagePickerWeb.getImageAsFile();
+
+    if (pickedFile != null) {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      final file = File(pickedFile?.relativePath ?? '');
+      final storageRef =
+          FirebaseStorage.instance.ref().child('profile_pictures').child('$userId.jpg');
+
+      try {
+        // Perform image upload
+        final uploadTask = storageRef.putFile(file);
+        final snapshot = await uploadTask.whenComplete(() => null);
+
+        if (snapshot.state == TaskState.success) {
+          final downloadUrl = await storageRef.getDownloadURL();
+          print("Download URL: $downloadUrl");
+
+          setState(() {
+            _formData.profilePictureUrl = downloadUrl;
+          });
+
+          if (userId != null) {
+            await FirebaseFirestore.instance.collection('admins').doc(userId).update({
+              'profilePictureUrl': downloadUrl,
+            });
+            print("Admin data saved successfully.");
+          }
+        } else {
+          print("Image upload failed.");
+        }
+      } catch (e) {
+        print("Error uploading image: $e");
+      }
+    } else {
+      print("No image picked.");
+    }
   }
 
   void _doSave(BuildContext context) {
@@ -50,7 +141,20 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       );
 
       dialog.show();
+
+      _saveAdminData();
+
+      setState(() {
+        _isEditing = false;
+      });
     }
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _isEditing = false;
+    });
+    _fetchAdminData();
   }
 
   @override
@@ -59,153 +163,201 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final themeData = Theme.of(context);
 
     return PortalMasterLayout(
-      body: ListView(
-        padding: const EdgeInsets.all(kDefaultPadding),
-        children: [
-          Text(
-            lang.myProfile,
-            style: themeData.textTheme.headlineMedium,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
-            child: Card(
-              clipBehavior: Clip.antiAlias,
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(kDefaultPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CardHeader(
-                    title: lang.myProfile,
+                  Text(
+                    lang.myProfile,
+                    style: themeData.textTheme.headlineMedium,
                   ),
-                  CardBody(
-                    child: FutureBuilder<bool>(
-                      initialData: null,
-                      future: (_future ??= _getDataAsync()),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          if (snapshot.hasData && snapshot.data!) {
-                            return _content(context);
-                          }
-                        } else if (snapshot.hasData && snapshot.data!) {
-                          return _content(context);
-                        }
-
-                        return Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
-                          child: SizedBox(
-                            height: 40.0,
-                            width: 40.0,
-                            child: CircularProgressIndicator(
-                              backgroundColor: themeData.scaffoldBackgroundColor,
-                            ),
-                          ),
-                        );
-                      },
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _isEditing ? _buildEditForm() : _buildProfileDetails(),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: _buildProfilePicture(),
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  _buildActionButtons(),
                 ],
               ),
             ),
-          ),
-        ],
+    );
+  }
+
+  Widget _buildProfileDetails() {
+    final labelStyle = TextStyle(
+      color: Colors.blue,
+      fontWeight: FontWeight.bold,
+    );
+
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(kDefaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Profile Information',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: [
+                  Icon(Icons.person, color: Colors.blue),
+                  const SizedBox(width: 10),
+                  Text('Username:', style: labelStyle),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_formData.username)),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: [
+                  Icon(Icons.email, color: Colors.blue),
+                  const SizedBox(width: 10),
+                  Text('Email:', style: labelStyle),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_formData.email)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _content(BuildContext context) {
-    final lang = Lang.of(context);
-    final themeData = Theme.of(context);
+  Widget _buildEditForm() {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(kDefaultPadding),
+        child: FormBuilder(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit Profile',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 10),
+              FormBuilderTextField(
+                name: 'username',
+                initialValue: _formData.username,
+                decoration: InputDecoration(
+                  labelText: 'Username',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  _formData.username = value ?? '';
+                },
+                validator: FormBuilderValidators.required(),
+              ),
+              const SizedBox(height: 10),
+              FormBuilderTextField(
+                name: 'email',
+                initialValue: _formData.email,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  _formData.email = value ?? '';
+                },
+                validator: FormBuilderValidators.compose([
+                  FormBuilderValidators.required(),
+                  FormBuilderValidators.email(),
+                ]),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-    return FormBuilder(
-      key: _formKey,
-      autovalidateMode: AutovalidateMode.disabled,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildProfilePicture() {
+    return Center(
+      child: GestureDetector(
+        onTap: _pickAndUploadImage,
+        child: CircleAvatar(
+          radius: 80,
+          backgroundImage: _formData.profilePictureUrl.isNotEmpty
+              ? NetworkImage(_formData.profilePictureUrl)
+              : null,
+          child: _formData.profilePictureUrl.isEmpty
+              ? Icon(Icons.camera_alt, size: 80)
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  backgroundImage: NetworkImage(_formData.userProfileImageUrl),
-                  radius: 60.0,
+          if (_isEditing)
+            ElevatedButton.icon(
+              onPressed: _cancelEdit,
+              icon: Icon(Icons.cancel),
+              label: Text('Cancel'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                backgroundColor: Colors.red,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                Positioned(
-                  top: 0.0,
-                  right: 0.0,
-                  child: SizedBox(
-                    height: 40.0,
-                    width: 40.0,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: themeData.extension<AppButtonTheme>()!.secondaryElevated.copyWith(
-                            shape: MaterialStateProperty.all(const CircleBorder()),
-                            padding: MaterialStateProperty.all(EdgeInsets.zero),
-                          ),
-                      child: const Icon(
-                        Icons.edit_rounded,
-                        size: 20.0,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
-            child: FormBuilderTextField(
-              name: 'username',
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                hintText: 'Username',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
               ),
-              initialValue: _formData.username,
-              validator: FormBuilderValidators.required(),
-              onSaved: (value) => (_formData.username = value ?? ''),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: kDefaultPadding * 2.0),
-            child: FormBuilderTextField(
-              name: 'email',
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'Email',
-                border: OutlineInputBorder(),
-                floatingLabelBehavior: FloatingLabelBehavior.always,
-              ),
-              initialValue: _formData.email,
-              keyboardType: TextInputType.emailAddress,
-              validator: FormBuilderValidators.required(),
-              onSaved: (value) => (_formData.email = value ?? ''),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: SizedBox(
-              height: 40.0,
-              child: ElevatedButton(
-                style: themeData.extension<AppButtonTheme>()!.successElevated,
-                onPressed: () => _doSave(context),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                      child: Icon(
-                        Icons.save_rounded,
-                        size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
-                      ),
-                    ),
-                    Text(lang.save),
-                  ],
-                ),
+          const SizedBox(width: 10),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (_isEditing) {
+                _doSave(context);
+              } else {
+                setState(() {
+                  _isEditing = true;
+                });
+              }
+            },
+            icon: Icon(_isEditing ? Icons.save_rounded : Icons.edit_rounded),
+            label: Text(_isEditing ? 'Save' : 'Edit'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              backgroundColor: _isEditing ? Colors.blue : Colors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
               ),
             ),
           ),
@@ -216,7 +368,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 }
 
 class FormData {
-  String userProfileImageUrl = '';
   String username = '';
   String email = '';
+  String profilePictureUrl = '';
 }

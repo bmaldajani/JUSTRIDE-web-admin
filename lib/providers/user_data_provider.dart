@@ -7,7 +7,6 @@ class UserDataProvider extends ChangeNotifier {
   var _username = '';
 
   String get userProfileImageUrl => _userProfileImageUrl;
-
   String get username => _username;
 
   Future<void> loadAsync() async {
@@ -28,17 +27,13 @@ class UserDataProvider extends ChangeNotifier {
 
     if (userProfileImageUrl != null && userProfileImageUrl != _userProfileImageUrl) {
       _userProfileImageUrl = userProfileImageUrl;
-
       await sharedPref.setString(StorageKeys.userProfileImageUrl, _userProfileImageUrl);
-
       shouldNotify = true;
     }
 
     if (username != null && username != _username) {
       _username = username;
-
       await sharedPref.setString(StorageKeys.username, _username);
-
       shouldNotify = true;
     }
 
@@ -49,7 +44,6 @@ class UserDataProvider extends ChangeNotifier {
 
   Future<void> clearUserDataAsync() async {
     final sharedPref = await SharedPreferences.getInstance();
-
     await sharedPref.remove(StorageKeys.username);
     await sharedPref.remove(StorageKeys.userProfileImageUrl);
 

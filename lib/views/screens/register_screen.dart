@@ -4,6 +4,8 @@ import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
@@ -13,7 +15,7 @@ import 'package:web_admin/utils/app_focus_helper.dart';
 import 'package:web_admin/views/widgets/public_master_layout/public_master_layout.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({Key? key}) : super(key: key);
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -26,8 +28,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   var _isFormLoading = false;
 
+  // Define the admin registration code pattern
+  final RegExp _adminRegistrationCodePattern = RegExp(
+    r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$%^&*()-_+=])[A-Za-z\d!@#\$%^&*()-_+=]{10,20}$',
+  );
+
   Future<void> _doRegisterAsync({
-    required UserDataProvider userDataProvider,
     required void Function(String message) onSuccess,
     required void Function(String message) onError,
   }) async {
@@ -37,22 +43,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Validation passed.
       _formKey.currentState!.save();
 
+      if (!_adminRegistrationCodePattern.hasMatch(_formData.registrationCode.trim())) {
+        onError.call('Invalid registration code.');
+        return;
+      }
+
       setState(() => _isFormLoading = true);
 
-      Future.delayed(const Duration(seconds: 1), () async {
-        if (_formData.username == 'admin') {
-          onError.call('This username is already taken.');
-        } else {
-          await userDataProvider.setUserDataAsync(
-            username: 'Admin ABC',
-            userProfileImageUrl: 'https://picsum.photos/id/1005/300/300',
-          );
+      try {
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _formData.email,
+          password: _formData.password,
+        );
 
-          onSuccess.call('Your account has been successfully created.');
-        }
+        // Add the admin details to Firestore
+        await FirebaseFirestore.instance.collection('admins').doc(userCredential.user?.uid).set({
+          'username': _formData.username,
+          'email': _formData.email,
+          'createdAt': Timestamp.now(),
+        });
 
+        // Store user data in UserDataProvider
+        await context.read<UserDataProvider>().setUserDataAsync(
+          username: _formData.username,
+        );
+
+        onSuccess.call('Your admin account has been successfully created.');
+      } on FirebaseAuthException catch (e) {
+        onError.call(e.message ?? 'An error occurred during registration.');
+      } finally {
         setState(() => _isFormLoading = false);
-      });
+      }
     }
   }
 
@@ -85,7 +106,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void dispose() {
     _passwordTextEditingController.dispose();
-
     super.dispose();
   }
 
@@ -140,7 +160,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               decoration: InputDecoration(
                                 labelText: lang.username,
                                 hintText: lang.username,
-                                helperText: '* To test registration fail: admin',
                                 border: const OutlineInputBorder(),
                                 floatingLabelBehavior: FloatingLabelBehavior.always,
                               ),
@@ -201,13 +220,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               validator: FormBuilderValidators.compose([
                                 FormBuilderValidators.required(),
                                 (value) {
-                                  if (_formKey.currentState?.fields['password']?.value != value) {
-                                    return lang.passwordNotMatch;
+                                  if (_formKey.currentState?.fields['password']?.value != value) {                            
+                                   return lang.passwordNotMatch;
                                   }
-
                                   return null;
                                 },
                               ]),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
+                            child: FormBuilderTextField(
+                              name: 'registrationCode',
+                              decoration: const InputDecoration(
+                                labelText: 'Admin Registration Code',
+                                hintText: 'Enter the admin registration code',
+                                border: OutlineInputBorder(),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                              ),
+                              obscureText: true,
+                              validator: FormBuilderValidators.compose([
+                                FormBuilderValidators.required(),
+                                (value) {
+                                  if (!_adminRegistrationCodePattern.hasMatch(value ?? '')) {
+                                    return 'The registration code must be alphanumeric with at least one uppercase letter, one lowercase letter, one digit, one special character, and no spaces.';
+                                  }
+                                  return null;
+                                },
+                              ]),
+                              onSaved: (value) => (_formData.registrationCode = value ?? ''),
                             ),
                           ),
                           Padding(
@@ -220,7 +261,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 onPressed: (_isFormLoading
                                     ? null
                                     : () => _doRegisterAsync(
-                                          userDataProvider: context.read<UserDataProvider>(),
                                           onSuccess: (message) => _onRegisterSuccess(context, message),
                                           onError: (message) => _onRegisterError(context, message),
                                         )),
@@ -255,4 +295,5 @@ class FormData {
   String username = '';
   String email = '';
   String password = '';
+  String registrationCode = '';
 }

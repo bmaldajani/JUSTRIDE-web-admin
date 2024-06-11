@@ -1,9 +1,10 @@
-import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
@@ -14,7 +15,7 @@ import 'package:web_admin/utils/app_focus_helper.dart';
 import 'package:web_admin/views/widgets/public_master_layout/public_master_layout.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({Key? key}) : super(key: key);
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -27,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   var _isFormLoading = false;
 
   Future<void> _doLoginAsync({
-    required UserDataProvider userDataProvider,
     required VoidCallback onSuccess,
     required void Function(String message) onError,
   }) async {
@@ -39,20 +39,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
       setState(() => _isFormLoading = true);
 
-      Future.delayed(const Duration(seconds: 1), () async {
-        if (_formData.username != 'admin' || _formData.password != 'admin') {
-          onError.call('Invalid username or password.');
-        } else {
-          await userDataProvider.setUserDataAsync(
-            username: 'Admin ABC',
-            userProfileImageUrl: 'https://picsum.photos/id/1005/300/300',
-          );
+      try {
+        UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _formData.email,
+          password: _formData.password,
+        );
 
-          onSuccess.call();
+        // Check if the user is in the admins collection
+        DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+            .collection('admins')
+            .doc(userCredential.user?.uid)
+            .get();
+
+        if (!adminSnapshot.exists) {
+          throw FirebaseAuthException(
+            code: 'user-not-found',
+            message: 'No admin found for this user.',
+          );
         }
 
+        // Set user data
+        final userDataProvider = context.read<UserDataProvider>();
+        await userDataProvider.setUserDataAsync(
+          username: adminSnapshot['username'],
+          userProfileImageUrl: 'https://picsum.photos/id/1005/300/300', // You might want to store and retrieve actual profile URLs
+        );
+
+        onSuccess.call();
+      } on FirebaseAuthException catch (e) {
+        onError.call(e.message ?? 'An error occurred during login.');
+      } finally {
         setState(() => _isFormLoading = false);
-      });
+      }
     }
   }
 
@@ -61,16 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onLoginError(BuildContext context, String message) {
-    final dialog = AwesomeDialog(
-      context: context,
-      dialogType: DialogType.error,
-      desc: message,
-      width: kDialogWidth,
-      btnOkText: 'OK',
-      btnOkOnPress: () {},
-    );
-
-    dialog.show();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -120,16 +129,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
                             child: FormBuilderTextField(
-                              name: 'username',
+                              name: 'email',
                               decoration: InputDecoration(
-                                labelText: lang.username,
-                                hintText: lang.username,
+                                labelText: lang.email,
+                                hintText: lang.email,
                                 border: const OutlineInputBorder(),
                                 floatingLabelBehavior: FloatingLabelBehavior.always,
                               ),
-                              enableSuggestions: false,
+                              keyboardType: TextInputType.emailAddress,
                               validator: FormBuilderValidators.required(),
-                              onSaved: (value) => (_formData.username = value ?? ''),
+                              onSaved: (value) => (_formData.email = value ?? ''),
                             ),
                           ),
                           Padding(
@@ -158,7 +167,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onPressed: (_isFormLoading
                                     ? null
                                     : () => _doLoginAsync(
-                                          userDataProvider: context.read<UserDataProvider>(),
                                           onSuccess: () => _onLoginSuccess(context),
                                           onError: (message) => _onLoginError(context, message),
                                         )),
@@ -206,6 +214,6 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class FormData {
-  String username = '';
+  String email = '';
   String password = '';
 }
