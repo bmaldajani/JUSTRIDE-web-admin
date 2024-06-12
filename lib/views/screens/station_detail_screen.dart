@@ -60,7 +60,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
             id: doc.id,
             name: data['name'] ?? '',
             location: Location(
-              name: data['location']['name'] ?? '',
+            
               latitude: (data['location']['latitude'] ?? 0.0).toDouble(),
               longitude: (data['location']['longitude'] ?? 0.0).toDouble(),
             ),
@@ -162,15 +162,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                   });
                 },
               ),
-              TextFormField(
-                initialValue: _station.location.name,
-                decoration: InputDecoration(labelText: 'Location Name'),
-                onChanged: (value) {
-                  setState(() {
-                    _station.location.name = value;
-                  });
-                },
-              ),
+             
               TextFormField(
                 initialValue: _station.location.latitude.toString(),
                 decoration: InputDecoration(labelText: 'Latitude'),
@@ -227,15 +219,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                   });
                 },
               ),
-              TextFormField(
-                initialValue: _station.location.name,
-                decoration: InputDecoration(labelText: 'Location Name'),
-                onChanged: (value) {
-                  setState(() {
-                    _station.location.name = value;
-                  });
-                },
-              ),
+              
               TextFormField(
                 initialValue: _station.location.latitude.toString(),
                 decoration: InputDecoration(labelText: 'Latitude'),
@@ -271,7 +255,7 @@ class _StationDetailScreenState extends State<StationDetailScreen> {
                 await _firestore.collection('stations').doc(_station.id).update({
                   'name': _station.name,
                   'location': {
-                    'name': _station.location.name,
+                    
                     'latitude': _station.location.latitude,
                     'longitude': _station.location.longitude,
                   },
@@ -390,12 +374,11 @@ required this.scooters,
 }
 
 class Location {
-String name;
+
 double latitude;
 double longitude;
 
 Location({
-required this.name,
 required this.latitude,
 required this.longitude,
 });
