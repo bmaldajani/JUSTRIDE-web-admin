@@ -6,12 +6,14 @@ import 'package:web_admin/views/screens/login_screen.dart';
 import 'package:web_admin/views/screens/logout_screen.dart';
 import 'package:web_admin/views/screens/my_profile_screen.dart';
 import 'package:web_admin/views/screens/register_screen.dart';
+import 'package:web_admin/views/screens/ride_details_screen.dart';
 import 'package:web_admin/views/screens/scooter_detail_screen.dart';
 import 'package:web_admin/views/screens/scooters_screen.dart';
 import 'package:web_admin/views/screens/user_detail_screen.dart';
 import 'package:web_admin/views/screens/users_screen.dart';
 import 'package:web_admin/views/screens/stations_screen.dart';
 import 'package:web_admin/views/screens/station_detail_screen.dart';
+import 'package:web_admin/views/screens/rides_screen.dart';
 
 class RouteUri {
   static const String home = '/';
@@ -27,7 +29,9 @@ class RouteUri {
   static const String users = '/users';
   static const String stations = '/stations';
   static const String stationsDetail = '/stationsDetail';
-   // Add this constant
+  static const String rides = '/ride';
+  static const String rideDetails = '/rideDetail';
+  // Add this constant
 }
 
 const List<String> unrestrictedRoutes = [
@@ -73,7 +77,6 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           child: const LogoutScreen(),
         ),
       ),
-
       GoRoute(
         path: RouteUri.login,
         pageBuilder: (context, state) => NoTransitionPage<void>(
@@ -90,20 +93,20 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
           );
         },
       ),
-
       GoRoute(
-  path: RouteUri.stationsDetail,
-  builder: (context, state) {
-    final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
-    return StationDetailScreen(id: id);
-  },
-),
+        path: RouteUri.stationsDetail,
+        builder: (context, state) {
+          final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+          return StationDetailScreen(id: id);
+        },
+      ),
       GoRoute(
         path: RouteUri.scooterDetail,
         pageBuilder: (context, state) {
           return NoTransitionPage<void>(
             key: state.pageKey,
-            child: ScooterDetailScreen(id: state.uri.queryParameters['id'] ?? ''),
+            child:
+                ScooterDetailScreen(id: state.uri.queryParameters['id'] ?? ''),
           );
         },
       ),
@@ -122,21 +125,51 @@ GoRouter appRouter(UserDataProvider userDataProvider) {
         ),
       ),
       GoRoute(
+        path: RouteUri
+            .userDetail, // Define the path for the StationDetailScreen route
+        builder: (context, state) {
+          // Extract the ID from the route parameters
+          final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+          // Instantiate the StationDetailScreen widget using the named constructor
+          return UserDetailScreen(id: id);
+        },
+      ),
+      GoRoute(
         path: RouteUri.stations, // Define the path for the StationsScreen route
         pageBuilder: (context, state) => NoTransitionPage<void>(
           key: state.pageKey,
-          child: const StationsScreen(), // Instantiate the StationsScreen widget
+          child:
+              const StationsScreen(), // Instantiate the StationsScreen widget
         ),
       ),
       GoRoute(
-      path: RouteUri.stationsDetail, // Define the path for the StationDetailScreen route
-      builder: (context, state) {
-        // Extract the ID from the route parameters
-        final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
-        // Instantiate the StationDetailScreen widget using the named constructor
-        return StationDetailScreen(id: id);
-      },
-    ),
+        path: RouteUri
+            .stationsDetail, // Define the path for the StationDetailScreen route
+        builder: (context, state) {
+          // Extract the ID from the route parameters
+          final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+          // Instantiate the StationDetailScreen widget using the named constructor
+          return StationDetailScreen(id: id);
+        },
+      ),
+      GoRoute(
+        path: RouteUri.rides, // Define the path for the StationsScreen route
+        pageBuilder: (context, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child:
+          const RideScreen(), // Instantiate the StationsScreen widget
+        ),
+      ),
+      GoRoute(
+        path: RouteUri
+      .rideDetails, // Define the path for the StationDetailScreen route
+        builder: (context, state) {
+          // Extract the ID from the route parameters
+          final id = (state.extra as Map<String, dynamic>?)?['id'] ?? '';
+          // Instantiate the StationDetailScreen widget using the named constructor
+          return RideDetailScreen(id: id);
+        },
+      ),
     ],
     redirect: (context, state) {
       if (unrestrictedRoutes.contains(state.matchedLocation)) {

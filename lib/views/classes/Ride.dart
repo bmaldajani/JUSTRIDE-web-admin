@@ -1,50 +1,57 @@
-
-import 'package:web_admin/views/classes/scooter.dart';
-
 class Ride {
-  final String id;
-  final Scooter scooter;
-  final String userId;
-  late final String startStation;
-  late final String endStation;
-  late final DateTime startDate;
-  late final DateTime endDate;
-  late final double finalCost;
-  late final Duration duration;
+  late String id;
+  late String scooterId;
+  late String userId;
+  late String startStation;
+  late String endStation;
+  late DateTime startDate;
+  late DateTime endDate;
+  late double finalCost;
+  late Duration duration;
+  late int rating;
 
   Ride({
     required this.id,
-    required this.scooter,
+    required this.scooterId,
     required this.userId,
     required this.startStation,
-    required this.endStation,
+    this.endStation = '',
     required this.startDate,
-    required this.endDate,
+    DateTime? endDate,
     this.finalCost = 0.0,
-  }) {
-    this.duration = endDate.difference(startDate);
+    Duration? duration,
+    this.rating = 0,
+  })  : this.endDate = endDate ?? DateTime.now(),
+        this.duration = duration ?? Duration.zero;
+
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'scooterId': scooterId,
+      'userId': userId,
+      'startStation': startStation,
+      'endStation': endStation,
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
+      'finalCost': finalCost,
+      'duration': duration.inSeconds,
+      'rating': rating,
+    };
   }
 
-  void startRide(Scooter scooter) {
-    this.startStation = scooter.stationid;
-    this.startDate = DateTime.now();
-    scooter.book();
-  }
-
-  void endRide() {
-    this.endDate = DateTime.now();
-    this.duration = this.endDate.difference(this.startDate);
-    scooter.unbook();
-    calculateCost();
-  }
-
-  void setEndStation(String stationid) {
-    this.endStation = stationid;
-  }
-
-  void calculateCost() {
-    final costPerMinute = 0.15;
-    final cost = duration.inMinutes * costPerMinute;
-    this.finalCost = cost;
+  factory Ride.fromJson(Map<String, dynamic> json) {
+    return Ride(
+      id: json['id'],
+      scooterId: json['scooterId'],
+      userId: json['userId'],
+      startStation: json['startStation'],
+      endStation: json['endStation'] ?? '',
+      startDate: DateTime.parse(json['startDate']),
+      endDate: DateTime.parse(json['endDate']),
+      finalCost: json['finalCost']?.toDouble() ?? 0.0,
+      duration: Duration(seconds: json['duration']),
+      rating: json['rating'] ?? 0,
+    );
   }
 }

@@ -22,4 +22,14 @@ final sidebarMenuConfigs = [
     icon: Icons.location_on,
     title: (context) => 'stations',
   ),
+  SidebarMenuConfig(
+    uri: '/ride',
+    icon: Icons.history_outlined,
+    title: (context) => 'rides',
+  ),
+  SidebarMenuConfig(
+    uri: '/reports',
+    icon: Icons.warning_amber_rounded,
+    title: (context) => 'reports',
+  ),
 ];
