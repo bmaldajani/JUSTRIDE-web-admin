@@ -28,64 +28,144 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
   late List<String> _stations = [];
 
   Future<bool>? _future;
-
+  late String _originalStation;
   Future<bool> _getDataAsync() async {
-    if (widget.id.isNotEmpty) {
-      final DocumentSnapshot scooterSnapshot = await _firestore.collection('scooters').doc(widget.id).get();
-      if (scooterSnapshot.exists) {
-        final data = scooterSnapshot.data() as Map<String, dynamic>;
-        _scooter = Scooter(
-          id: scooterSnapshot.id,
-          location: data['location'],
-          status: data['status'],
-          batteryLevel: data['batteryLevel'],
-        );
-      }
-    }
-
-    final QuerySnapshot stationSnapshot = await _firestore.collection('stations').get();
-    _stations = stationSnapshot.docs.map((doc) => doc['name'] as String).toList();
-
-    return true;
-  }
-
-  Future<void> _doSubmit(BuildContext context) async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-
-      final lang = Lang.of(context);
-
-      final dialog = AwesomeDialog(
-        context: context,
-        dialogType: DialogType.question,
-        title: lang.confirmSubmitRecord,
-        width: kDialogWidth,
-        btnOkText: lang.yes,
-        btnOkOnPress: () async {
-          await _firestore.collection('scooters').doc(widget.id).update({
-            'status': _scooter.status,
-            'location': _scooter.location,
-            'batteryLevel': _scooter.batteryLevel,
-          });
-
-          final d = AwesomeDialog(
-            context: context,
-            dialogType: DialogType.success,
-            title: lang.recordSubmittedSuccessfully,
-            width: kDialogWidth,
-            btnOkText: 'OK',
-            btnOkOnPress: () => GoRouter.of(context).go(RouteUri.scooters),
-          );
-
-          d.show();
-        },
-        btnCancelText: lang.cancel,
-        btnCancelOnPress: () {},
+  if (widget.id.isNotEmpty) {
+    final DocumentSnapshot scooterSnapshot = await _firestore.collection('scooters').doc(widget.id).get();
+    if (scooterSnapshot.exists) {
+      final data = scooterSnapshot.data() as Map<String, dynamic>;
+      _scooter = Scooter(
+        id: scooterSnapshot.id,
+        location: data['location'],
+        status: data['status'],
+        batteryLevel: data['batteryLevel'],
       );
-
-      dialog.show();
+       _originalStation = _scooter.location;
     }
   }
+
+  final QuerySnapshot stationSnapshot = await _firestore.collection('stations').get();
+  _stations = stationSnapshot.docs.map((doc) => doc['name'] as String).toList();
+
+  return true;
+}
+
+Future<void> _doSubmit(BuildContext context) async {
+  if (_formKey.currentState!.validate()) {
+    _formKey.currentState!.save();
+
+    final lang = Lang.of(context);
+    
+
+    print('Original station: $_originalStation');
+    print('New station: ${_scooter.location}');
+
+    final dialog = AwesomeDialog(
+      context: context,
+      dialogType: DialogType.question,
+      title: lang.confirmSubmitRecord,
+      width: kDialogWidth,
+      btnOkText: lang.yes,
+      btnOkOnPress: () async {
+        // If location has changed, update the stations
+        if (_originalStation != _scooter.location) {
+          // Remove scooter from the original station
+          await _removeScooterFromStation(_originalStation);
+
+          // Add scooter to the new station
+          await _addScooterToStation(_scooter.location);
+        }
+
+        // Update scooter document
+        await _updateScooterDocument();
+
+        // Show success dialog
+        await _showSuccessDialog(context);
+
+        // Navigate back to scooters list
+        GoRouter.of(context).go(RouteUri.scooters);
+      },
+      btnCancelText: lang.cancel,
+      btnCancelOnPress: () {},
+    );
+
+    dialog.show();
+  }
+}
+
+
+Future<void> _removeScooterFromStation(String stationName) async {
+  try {
+    // Assuming stationName is unique and can be used as document ID
+    final stationQuery = await _firestore.collection('stations').where('name', isEqualTo: stationName).get();
+    if (stationQuery.docs.isNotEmpty) {
+      final stationDoc = stationQuery.docs.first;
+      List<dynamic> scooters = List.from(stationDoc['scooters']);
+      scooters.remove(widget.id);
+      await stationDoc.reference.update({'scooters': scooters});
+      print('Scooter removed from station: $stationName');
+    } else {
+      print('Station document does not exist: $stationName');
+    }
+  } catch (e) {
+    print('Error removing scooter from station: $e');
+  }
+}
+
+
+
+
+
+
+
+Future<void> _addScooterToStation(String stationName) async {
+  try {
+    // Assuming stationName is unique and can be used as document ID
+    final stationQuery = await _firestore.collection('stations').where('name', isEqualTo: stationName).get();
+    if (stationQuery.docs.isNotEmpty) {
+      final stationDoc = stationQuery.docs.first;
+      List<dynamic> scooters = List.from(stationDoc['scooters']);
+      scooters.add(widget.id);
+      await stationDoc.reference.update({'scooters': scooters});
+      print('Scooter added to station: $stationName');
+    } else {
+      print('Station document does not exist: $stationName');
+    }
+  } catch (e) {
+    print('Error adding scooter to station: $e');
+  }
+}
+
+
+
+
+
+Future<void> _updateScooterDocument() async {
+  await _firestore.collection('scooters').doc(widget.id).update({
+    'status': _scooter.status,
+    'location': _scooter.location,
+    'batteryLevel': _scooter.batteryLevel,
+  });
+}
+
+Future<void> _showSuccessDialog(BuildContext context) async {
+  final lang = Lang.of(context);
+  
+  final d = AwesomeDialog(
+    context: context,
+    dialogType: DialogType.success,
+    title: lang.recordSubmittedSuccessfully,
+    width: kDialogWidth,
+    btnOkText: 'OK',
+    btnOkOnPress: () {
+      GoRouter.of(context).go(RouteUri.scooters);
+    },
+  );
+
+  d.show();
+}
+
+
 
   Future<void> _doDelete(BuildContext context) async {
     final lang = Lang.of(context);
@@ -121,6 +201,7 @@ class _ScooterDetailScreenState extends State<ScooterDetailScreen> {
   void initState() {
     super.initState();
     _scooter = Scooter(id: '', location: '', status: '', batteryLevel: 0);
+    
   }
 
   @override

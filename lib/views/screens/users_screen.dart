@@ -160,27 +160,7 @@ class _UserScreenState extends State<UserScreen> {
                                           ),
                                         ),
                                       ),
-                                      SizedBox(
-                                        height: 40.0,
-                                        child: ElevatedButton(
-                                          style: themeData.extension<AppButtonTheme>()!.successElevated,
-                                          onPressed: () => GoRouter.of(context).go(RouteUri.userDetail),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Padding(
-                                                padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                                                child: Icon(
-                                                  Icons.add,
-                                                  size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
-                                                ),
-                                              ),
-                                              Text(lang.crudNew),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                      
                                     ],
                                   ),
                                 ],
