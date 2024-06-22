@@ -27,9 +27,4 @@ final sidebarMenuConfigs = [
     icon: Icons.history_outlined,
     title: (context) => 'rides',
   ),
-  SidebarMenuConfig(
-    uri: '/reports',
-    icon: Icons.warning_amber_rounded,
-    title: (context) => 'reports',
-  ),
 ];

@@ -1,97 +1,159 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
 import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
 import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
-import 'package:web_admin/views/screens/scooter_detail_screen.dart';
 
 class ScooterScreen extends StatefulWidget {
-  const ScooterScreen({Key? key}) : super(key: key);
-
+  const ScooterScreen({super.key});
+  
   @override
-  _ScootersScreenState createState() => _ScootersScreenState();
+  State<ScooterScreen> createState() => _ScooterScreenState();
 }
 
-class _ScootersScreenState extends State<ScooterScreen> {
+class _ScooterScreenState extends State<ScooterScreen> {
+  bool _isLoading = true;
   final _scrollController = ScrollController();
   final _formKey = GlobalKey<FormBuilderState>();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final List<Scooter> _scooters = [];
-  bool _isLoading = false;
-  String? _errorMessage;
+  late DataSource _dataSource;
+  late List<Station> _stations = [];
 
   @override
   void initState() {
     super.initState();
+     _dataSource = DataSource(
+    scooters: [],
+    originalScooters: [],
+    onDetailButtonPressed: (scooter) => GoRouter.of(context).go('${RouteUri.scooterDetail}?id=${scooter.id}'),
+    onDeleteButtonPressed: (scooter) => _deleteScooter(scooter),
+  );
+    _fetchStations();
     _fetchScooters();
+    _fetchData();
   }
 
-  Future<void> _fetchScooters() async {
+  Future<void> _fetchData() async {
+    // Simulate fetching data
+    await Future.delayed(const Duration(seconds: 1));
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      _isLoading = false;
     });
+  }
 
-    try {
-      final QuerySnapshot scooterSnapshot = await _firestore.collection('scooters').get();
-
-      final List<Scooter> scooters = scooterSnapshot.docs.map((doc) {
+  Future<void> _fetchStations() async {
+    final QuerySnapshot snapshot = await _firestore.collection('stations').get();
+    setState(() {
+      _stations = snapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
-        return Scooter(
+        return Station(
           id: doc.id,
-          location: data['location'],
-          status: data['status'],
-          batteryLevel: data['batteryLevel'],
+          name: data['name'],
+          location: Location(
+            latitude: data['location']['latitude'],
+            longitude: data['location']['longitude'],
+          ),
         );
       }).toList();
-
-      setState(() {
-        _scooters.clear();
-        _scooters.addAll(scooters);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to load scooters. Please try again later.';
-      });
-    }
+    });
   }
 
-  Future<void> _addScooter(Scooter scooter) async {
-    setState(() {
-      _isLoading = true;
+  // Adjust _fetchScooters to populate _dataSource.scooters with all scooters
+Future<void> _fetchScooters() async {
+  final QuerySnapshot snapshot = await _firestore.collection('scooters').get();
+  final List<Scooter> scooters = snapshot.docs.map((doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Scooter(
+      id: doc.id,
+      location: data['location'],
+      status: data['status'],
+      batteryLevel: data['batteryLevel'],
+    );
+  }).toList();
+
+  setState(() {
+    _dataSource = DataSource(
+      scooters: List.of(scooters),
+      originalScooters: List.of(scooters),
+      onDetailButtonPressed: (scooter) => GoRouter.of(context).go('${RouteUri.scooterDetail}?id=${scooter.id}'),
+      onDeleteButtonPressed: (scooter) => _deleteScooter(scooter),
+    );
+  });
+}
+
+
+
+
+ Future<void> _addScooter(Scooter scooter, String selectedStation) async {
+  final WriteBatch batch = _firestore.batch();
+
+  // Add the scooter data to Firestore and get the document reference
+  final DocumentReference scooterDocRef = _firestore.collection('scooters').doc();
+
+  final Map<String, dynamic> scooterData = {
+    'location': selectedStation,
+    'status': scooter.status,
+    'batteryLevel': scooter.batteryLevel,
+  };
+
+  batch.set(scooterDocRef, scooterData);
+
+  // Get the station document reference
+  final QuerySnapshot stationSnapshot = await _firestore.collection('stations').where('name', isEqualTo: selectedStation).limit(1).get();
+
+  if (stationSnapshot.docs.isNotEmpty) {
+    final DocumentReference stationDocRef = stationSnapshot.docs.first.reference;
+
+    // Update the station document to include the new scooter in the scooters array
+    batch.update(stationDocRef, {
+      'scooters': FieldValue.arrayUnion([scooterDocRef.id]),
     });
+  }
 
-    try {
-      final docRef = await _firestore.collection('scooters').add({
-        'location': scooter.location,
-        'status': scooter.status,
-        'batteryLevel': scooter.batteryLevel,
-      });
+  // Commit the batch write
+  await batch.commit();
 
-      final newScooter = Scooter(
-        id: docRef.id,
-        location: scooter.location,
-        status: scooter.status,
-        batteryLevel: scooter.batteryLevel,
-      );
+  // Get the ID generated by Firestore
+  final String id = scooterDocRef.id;
 
-      setState(() {
-        _scooters.add(newScooter);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to add scooter. Please try again later.';
-      });
-    }
+  // Update the scooter object with the generated ID
+  final updatedScooter = Scooter(
+    id: id, // Assign the generated ID
+    location: selectedStation,
+    status: scooter.status,
+    batteryLevel: scooter.batteryLevel,
+  );
+
+  // Update the DataSource with the updated scooter
+  setState(() {
+    _dataSource.scooters.add(updatedScooter);
+  });
+
+  // Find the index of the selected station
+  final index = _stations.indexWhere((station) => station.name == selectedStation);
+  if (index != -1) {
+    // Add the new scooter to the scooters list of the selected station
+    setState(() {
+      _stations[index].scooters.add(updatedScooter);
+    });
+  }
+}
+
+
+
+
+  Future<void> _deleteScooter(Scooter scooter) async {
+    await _firestore.collection('scooters').doc(scooter.id).delete();
+    setState(() {
+      _dataSource.scooters.remove(scooter);
+    });
   }
 
   @override
@@ -105,7 +167,21 @@ class _ScootersScreenState extends State<ScooterScreen> {
     final lang = Lang.of(context);
     final themeData = Theme.of(context);
     final appDataTableTheme = themeData.extension<AppDataTableTheme>()!;
-
+    if (_isLoading) {
+      // Display a loading indicator
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    } else if (_dataSource == null) {
+    // _dataSource is not yet initialized, return an empty container or loading state
+    return const Scaffold(
+      body: Center(
+        child: Text('Loading data...'),
+      ),
+    );
+  }
     return PortalMasterLayout(
       body: ListView(
         padding: const EdgeInsets.all(kDefaultPadding),
@@ -114,87 +190,73 @@ class _ScootersScreenState extends State<ScooterScreen> {
             'Scooters',
             style: themeData.textTheme.headlineMedium,
           ),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
-          if (_errorMessage != null)
-            Center(child: Text(_errorMessage!, style: TextStyle(color: Colors.red))),
-          if (!_isLoading && _errorMessage == null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const CardHeader(
-                      title: 'Scooters',
-                    ),
-                    CardBody(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: kDefaultPadding * 2.0),
-                            child: FormBuilder(
-                              key: _formKey,
-                              autovalidateMode: AutovalidateMode.disabled,
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: Wrap(
-                                  direction: Axis.horizontal,
-                                  spacing: kDefaultPadding,
-                                  runSpacing: kDefaultPadding,
-                                  alignment: WrapAlignment.spaceBetween,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 300.0,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(right: kDefaultPadding * 1.5),
-                                        child: FormBuilderTextField(
-                                          name: 'search',
-                                          decoration: InputDecoration(
-                                            labelText: lang.search,
-                                            hintText: lang.search,
-                                            border: const OutlineInputBorder(),
-                                            floatingLabelBehavior: FloatingLabelBehavior.always,
-                                            isDense: true,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(right: kDefaultPadding),
-                                          child: SizedBox(
-                                            height: 40.0,
-                                            child: ElevatedButton(
-                                              style: themeData.extension<AppButtonTheme>()!.infoElevated,
-                                              onPressed: () {},
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                                                    child: Icon(
-                                                      Icons.search,
-                                                      size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
-                                                    ),
-                                                  ),
-                                                  Text(lang.search),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: kDefaultPadding),
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const CardHeader(
+                    title: 'Scooters',
+                  ),
+                  CardBody(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: kDefaultPadding * 2.0),
+                          child: FormBuilder(
+                            key: _formKey,
+                            autovalidateMode: AutovalidateMode.disabled,
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Wrap(
+                                direction: Axis.horizontal,
+                                spacing: kDefaultPadding,
+                                runSpacing: kDefaultPadding,
+                                alignment: WrapAlignment.spaceBetween,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 300.0,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: kDefaultPadding * 1.5),
+                                      child: FormBuilderTextField(
+  name: 'search',
+  onChanged: (value) {
+    setState(() {
+      _dataSource.filterScooters(value ?? '');
+    });
+  },
+  decoration: InputDecoration(
+    labelText: lang.search,
+    hintText: lang.search,
+    border: const OutlineInputBorder(),
+    floatingLabelBehavior: FloatingLabelBehavior.always,
+    isDense: true,
+  ),
+),
+
+
+
+
+
+// Adjust _fetchScooters to populate _dataSource.scooters with all scooters
+
+
+
+                                  ),),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: kDefaultPadding),
+                                        child: SizedBox(
                                           height: 40.0,
                                           child: ElevatedButton(
-                                            style: themeData.extension<AppButtonTheme>()!.successElevated,
-                                            onPressed: () => _showAddScooterDialog(context),
+                                            style: themeData.extension<AppButtonTheme>()!.infoElevated,
+                                            onPressed: () {},
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,110 +264,106 @@ class _ScootersScreenState extends State<ScooterScreen> {
                                                 Padding(
                                                   padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
                                                   child: Icon(
-                                                    Icons.add,
+                                                    Icons.search,
                                                     size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
                                                   ),
                                                 ),
-                                                Text(lang.crudNew),
+                                                Text(lang.search),
                                               ],
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                      ),
+                                      SizedBox(
+                                        height: 40.0,
+                                        child: ElevatedButton(
+                                          style: themeData.extension<AppButtonTheme>()!.successElevated,
+                                          onPressed: () => _showAddScooterDialog(context),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Padding(
+                                                padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
+                                                child: Icon(
+                                                  Icons.add,
+                                                  size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+                                                ),
+                                              ),
+                                              Text(lang.crudNew),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          SizedBox(
-                            width: double.infinity,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final double dataTableWidth = max(kScreenWidthMd, constraints.maxWidth);
+                        ),
+                        SizedBox(
+                          width: double.infinity,
+                          child: LayoutBuilder(
+                            builder:
+                             (context, constraints) {
+                              final double dataTableWidth = max(kScreenWidthMd, constraints.maxWidth);
 
-                                return Scrollbar(
+                              return Scrollbar(
+                                controller: _scrollController,
+                                thumbVisibility: true,
+                                trackVisibility: true,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
                                   controller: _scrollController,
-                                  thumbVisibility: true,
-                                  trackVisibility: true,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    controller: _scrollController,
-                                    child: SizedBox(
-                                      width: dataTableWidth,
-                                      child: Theme(
-                                        data: themeData.copyWith(
-                                          cardTheme: appDataTableTheme.cardTheme,
-                                          dataTableTheme: appDataTableTheme.dataTableThemeData,
-                                        ),
-                                        child: PaginatedDataTable(
-                                          source: ScooterDataSource(
-                                            scooters: _scooters,
-                                            onDetailButtonPressed: (scooter) {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => ScooterDetailScreen(id: scooter.id),
-                                                ),
-                                              );
-                                            },
-                                            onDeleteButtonPressed: (scooter) => _deleteScooter(scooter),
-                                          ),
-                                          rowsPerPage: 20,
-                                          showCheckboxColumn: false,
-                                          showFirstLastButtons: true,
-                                          columns: const [
-                                            DataColumn(label: Text('Scooter ID')),
-                                            DataColumn(label: Text('Location')),
-                                            DataColumn(label: Text('Status')),
-                                            DataColumn(label: Text('Battery Level')),
-                                            DataColumn(label: Text('Actions')),
-                                          ],
-                                        ),
+                                  child: SizedBox(
+                                    width: dataTableWidth,
+                                    child: Theme(
+                                      data: themeData.copyWith(
+                                        cardTheme: appDataTableTheme.cardTheme,
+                                        dataTableTheme: appDataTableTheme.dataTableThemeData,
                                       ),
+                                      child: _dataSource != null
+                                          ? PaginatedDataTable(
+                                              source: _dataSource,
+                                              rowsPerPage: 20,
+                                              showCheckboxColumn: false,
+                                              showFirstLastButtons: true,
+                                              columns: const [
+                                                DataColumn(label: Text('ID'), numeric: true),
+                                                DataColumn(label: Text('Location')),
+                                                DataColumn(label: Text('Status')),
+                                                DataColumn(label: Text('Battery Level')),
+                                                DataColumn(label: Text('Actions')),
+                                              ],
+                                            )
+                                          : const CircularProgressIndicator(),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _deleteScooter(Scooter scooter) async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await _firestore.collection('scooters').doc(scooter.id).delete();
-      setState(() {
-        _scooters.remove(scooter);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to delete scooter. Please try again later.';
-      });
-    }
-  }
-
   void _showAddScooterDialog(BuildContext context) {
     final TextEditingController locationController = TextEditingController();
-    final TextEditingController statusController = TextEditingController();
     final TextEditingController batteryLevelController = TextEditingController();
 
+     // Define options for the status dropdown
+     final List<String> statusOptions = ['available', 'unavailable', 'disabled'];
+    String? selectedStatus;
     showDialog(
       context: context,
       builder: (context) {
@@ -314,14 +372,36 @@ class _ScootersScreenState extends State<ScooterScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: locationController,
-                decoration: const InputDecoration(labelText: 'Location'),
+              DropdownButtonFormField<String>(
+                value: null,
+                onChanged: (value) {
+                  setState(() {
+                    locationController.text = value!;
+                  });
+                },
+                items: _stations.map((station) {
+                  return DropdownMenuItem<String>(
+                    value: station.name,
+                    child: Text(station.name),
+                  );
+                }).toList(),
+                decoration: const InputDecoration(labelText: 'Station'),
               ),
-              TextField(
-                controller: statusController,
-                decoration: const InputDecoration(labelText: 'Status'),
-              ),
+              DropdownButtonFormField<String>(
+              value: selectedStatus,
+              onChanged: (value) {
+                setState(() {
+                  selectedStatus = value;
+                });
+              },
+              items: statusOptions.map((option) {
+                return DropdownMenuItem<String>(
+                  value: option,
+                  child: Text(option),
+                );
+              }).toList(),
+              decoration: const InputDecoration(labelText: 'Status'),
+            ),
               TextField(
                 controller: batteryLevelController,
                 decoration: const InputDecoration(labelText: 'Battery Level'),
@@ -335,13 +415,13 @@ class _ScootersScreenState extends State<ScooterScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final scooter = Scooter(
                   location: locationController.text,
-                  status: statusController.text,
+                  status: selectedStatus ?? '', 
                   batteryLevel: int.tryParse(batteryLevelController.text) ?? 0,
                 );
-                _addScooter(scooter);
+                await _addScooter(scooter, locationController.text); // Await _addScooter method
                 Navigator.pop(context);
               },
               child: const Text('Add'),
@@ -353,16 +433,29 @@ class _ScootersScreenState extends State<ScooterScreen> {
   }
 }
 
-class ScooterDataSource extends DataTableSource {
-  final List<Scooter> scooters;
+class DataSource extends DataTableSource {
+  List<Scooter> scooters;
+  List<Scooter> originalScooters;
   final void Function(Scooter) onDetailButtonPressed;
   final void Function(Scooter) onDeleteButtonPressed;
 
-  ScooterDataSource({
+  DataSource({
     required this.scooters,
     required this.onDetailButtonPressed,
     required this.onDeleteButtonPressed,
+    required this.originalScooters,
   });
+
+  void filterScooters(String query) {
+    if (query.isEmpty) {
+      scooters = List.of(originalScooters);
+    } else {
+      scooters = originalScooters
+          .where((scooter) => scooter.id.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    }
+    notifyListeners(); // Notify listeners after updating scooters
+  }
 
   @override
   DataRow? getRow(int index) {
@@ -405,4 +498,38 @@ class ScooterDataSource extends DataTableSource {
 
   @override
   int get selectedRowCount => 0;
+}
+
+
+class Scooter {
+  final String id;
+  final String location;
+  final String status;
+  final int batteryLevel;
+
+  Scooter({
+    this.id = '', 
+    required this.location,
+    required this.status,
+    required this.batteryLevel,
+  });
+}
+
+class Station {
+  final String id;
+  final String name;
+  final Location location;
+
+  final List<Scooter> scooters;
+
+  Station({ List<Scooter>? scooters,required this.id, required this.name, required this.location})
+   : this.scooters = scooters ?? [];
+}
+
+class Location {
+
+  final double latitude;
+  final double longitude;
+
+  Location({ required this.latitude, required this.longitude});
 }

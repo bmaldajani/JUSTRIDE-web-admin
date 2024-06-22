@@ -1,4 +1,3 @@
-import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
@@ -37,8 +36,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required void Function(String message) onSuccess,
     required void Function(String message) onError,
   }) async {
-    AppFocusHelper.instance.requestUnfocus();
-
     if (_formKey.currentState?.validate() ?? false) {
       // Validation passed.
       _formKey.currentState!.save();
@@ -56,19 +53,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           password: _formData.password,
         );
 
+        // Send email verification
+        await userCredential.user!.sendEmailVerification();
+
         // Add the admin details to Firestore
         await FirebaseFirestore.instance.collection('admins').doc(userCredential.user?.uid).set({
           'username': _formData.username,
           'email': _formData.email,
+          'phoneNumber': _formData.phoneNumber, // Add phone number to Firestore
           'createdAt': Timestamp.now(),
         });
 
-        // Store user data in UserDataProvider
-        await context.read<UserDataProvider>().setUserDataAsync(
-          username: _formData.username,
-        );
+        onSuccess.call('Your admin account has been successfully created. Please verify your email.');
 
-        onSuccess.call('Your admin account has been successfully created.');
       } on FirebaseAuthException catch (e) {
         onError.call(e.message ?? 'An error occurred during registration.');
       } finally {
@@ -78,29 +75,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _onRegisterSuccess(BuildContext context, String message) {
-    final dialog = AwesomeDialog(
+    showDialog(
       context: context,
-      dialogType: DialogType.success,
-      desc: message,
-      width: kDialogWidth,
-      btnOkText: Lang.of(context).loginNow,
-      btnOkOnPress: () => GoRouter.of(context).go(RouteUri.home),
-    );
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Registration Successful'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close the dialog
 
-    dialog.show();
+                // Check if the user's email is verified
+                User? user = FirebaseAuth.instance.currentUser;
+                if (user != null && user.emailVerified) {
+                  // Navigate to home screen
+                  GoRouter.of(context).go(RouteUri.home);
+                } else {
+                  // Show an error dialog or message if email is not verified
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Email Verification Pending'),
+                        content: Text('Email verification is pending. Please check your email.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close the dialog
+                            },
+                            child: Text('OK'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _onRegisterError(BuildContext context, String message) {
-    final dialog = AwesomeDialog(
+    showDialog(
       context: context,
-      dialogType: DialogType.error,
-      desc: message,
-      width: kDialogWidth,
-      btnOkText: 'OK',
-      btnOkOnPress: () {},
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Registration Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
     );
-
-    dialog.show();
   }
 
   @override
@@ -186,6 +223,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
                             child: FormBuilderTextField(
+                              name: 'phoneNumber',
+                              decoration: const InputDecoration(
+                                labelText: "phoneNumber",
+                                hintText: "phoneNumber",
+                                border: OutlineInputBorder(),
+                                floatingLabelBehavior: FloatingLabelBehavior.always,
+                              ),
+                              keyboardType: TextInputType.phone,
+                              validator: FormBuilderValidators.required(),
+                              onSaved: (value) => (_formData.phoneNumber = value ?? ''),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: kDefaultPadding * 1.5),
+                            child: FormBuilderTextField(
                               name: 'password',
                               decoration: InputDecoration(
                                 labelText: lang.password,
@@ -220,8 +272,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               validator: FormBuilderValidators.compose([
                                 FormBuilderValidators.required(),
                                 (value) {
-                                  if (_formKey.currentState?.fields['password']?.value != value) {                            
-                                   return lang.passwordNotMatch;
+                                  if (_formKey.currentState?.fields['password']?.value != value) {
+                                    return lang.passwordNotMatch;
                                   }
                                   return null;
                                 },
@@ -296,4 +348,5 @@ class FormData {
   String email = '';
   String password = '';
   String registrationCode = '';
+  String phoneNumber = ''; // Added phone number field
 }

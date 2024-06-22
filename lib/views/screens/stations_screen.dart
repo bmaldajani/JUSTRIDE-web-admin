@@ -1,9 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:web_admin/app_router.dart';
 import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
 import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
@@ -33,16 +31,34 @@ class _StationsScreenState extends State<StationsScreen> {
     _fetchStations();
   }
 
-  Future<void> _fetchStations() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+Future<void> _fetchStations({String? searchTerm}) async {
+  setState(() {
+    _isLoading = true;
+    _errorMessage = null;
+  });
 
-    try {
-      final QuerySnapshot stationSnapshot = await _firestore.collection('stations').get();
+  try {
+    Query query = _firestore.collection('stations');
+    List<Station> stations = [];
 
-      final List<Station> stations = await Future.wait(stationSnapshot.docs.map((stationDoc) async {
+    if (searchTerm != null && searchTerm.isNotEmpty) {
+      String searchLower = searchTerm.toLowerCase();
+
+      QuerySnapshot nameQuerySnapshot = await query
+          .where('name', isGreaterThanOrEqualTo: searchLower)
+          .where('name', isLessThan: searchLower + 'z')
+          .get();
+
+      QuerySnapshot idQuerySnapshot = await query
+          .where(FieldPath.documentId, isEqualTo: searchTerm)
+          .get();
+
+      List<QueryDocumentSnapshot> combinedResults = [
+        ...nameQuerySnapshot.docs,
+        ...idQuerySnapshot.docs,
+      ];
+
+      stations = await Future.wait(combinedResults.map((stationDoc) async {
         final stationData = stationDoc.data() as Map<String, dynamic>;
         final List<String> scooterIds = List<String>.from(stationData['scooters']);
 
@@ -61,29 +77,61 @@ class _StationsScreenState extends State<StationsScreen> {
         }
 
         return Station(
-          id: stationDoc.id,
+          id: stationDoc.id, // Use document ID as station ID
           name: stationData['name'],
           location: Location(
-           
             latitude: stationData['location']['latitude'].toDouble(),
             longitude: stationData['location']['longitude'].toDouble(),
           ),
           scooters: scooters,
         );
       }).toList());
+    } else {
+      final QuerySnapshot stationSnapshot = await query.get();
+      stations = await Future.wait(stationSnapshot.docs.map((stationDoc) async {
+        final stationData = stationDoc.data() as Map<String, dynamic>;
+        final List<String> scooterIds = List<String>.from(stationData['scooters']);
 
-      setState(() {
-        _stations.clear();
-        _stations.addAll(stations);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Failed to load stations. Please try again later.';
-      });
+        final List<Scooter> scooters = [];
+        for (String scooterId in scooterIds) {
+          final scooterDoc = await _firestore.collection('scooters').doc(scooterId).get();
+          if (scooterDoc.exists) {
+            final scooterData = scooterDoc.data() as Map<String, dynamic>;
+            scooters.add(Scooter(
+              id: scooterDoc.id,
+              location: scooterData['location'],
+              status: scooterData['status'],
+              batteryLevel: scooterData['batteryLevel'],
+            ));
+          }
+        }
+
+        return Station(
+          id: stationDoc.id, // Use document ID as station ID
+          name: stationData['name'],
+          location: Location(
+            latitude: stationData['location']['latitude'].toDouble(),
+            longitude: stationData['location']['longitude'].toDouble(),
+          ),
+          scooters: scooters,
+        );
+      }).toList());
     }
+
+    setState(() {
+      _stations.clear();
+      _stations.addAll(stations);
+      _isLoading = false;
+    });
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+      _errorMessage = 'Failed to load stations. Please try again later.';
+    });
   }
+}
+
+
 
   Future<void> _addStation(Station station) async {
     setState(() {
@@ -196,23 +244,29 @@ class _StationsScreenState extends State<StationsScreen> {
                                           child: SizedBox(
                                             height: 40.0,
                                             child: ElevatedButton(
-                                              style: themeData.extension<AppButtonTheme>()!.infoElevated,
-                                              onPressed: () {},
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
-                                                    child: Icon(
-                                                      Icons.search,
-                                                      size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
-                                                    ),
-                                                  ),
-                                                  Text(lang.search),
-                                                ],
-                                              ),
-                                            ),
+  style: themeData.extension<AppButtonTheme>()!.infoElevated,
+  onPressed: () {
+    _formKey.currentState?.save(); // Ensure the form state is saved
+    final searchValue = _formKey.currentState?.fields['search']?.value as String?;
+    _fetchStations(searchTerm: searchValue);
+  },
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(right: kDefaultPadding * 0.5),
+        child: Icon(
+          Icons.search,
+          size: (themeData.textTheme.labelLarge!.fontSize! + 4.0),
+        ),
+      ),
+      Text(lang.search),
+    ],
+  ),
+),
+
+
                                           ),
                                         ),
                                         SizedBox(
@@ -319,7 +373,7 @@ class _StationsScreenState extends State<StationsScreen> {
           context: context,
           builder: (context) {
             return AlertDialog(
-              title: Text('Select Destination Station for Scooters'),
+              title: const Text('Select Destination Station for Scooters'),
               content: DropdownButtonFormField<Station>(
                 value: null,
                 onChanged: (value) => Navigator.pop(context, value),

@@ -33,56 +33,58 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Future<void> _fetchAdminData() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+  final userId = FirebaseAuth.instance.currentUser?.uid;
 
-    if (userId != null) {
-      try {
-        final adminDoc =
-            await FirebaseFirestore.instance.collection('admins').doc(userId).get();
+  if (userId != null) {
+    try {
+      final adminDoc = await FirebaseFirestore.instance.collection('admins').doc(userId).get();
 
-        if (adminDoc.exists) {
-          setState(() {
-            _formData.username = adminDoc.get('username') ?? '';
-            _formData.email = adminDoc.get('email') ?? '';
-            _formData.profilePictureUrl = adminDoc.get('profilePictureUrl') ?? '';
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _isLoading = false;
-          });
-          print("Admin document does not exist.");
-        }
-      } catch (e) {
+      if (adminDoc.exists) {
+        setState(() {
+          _formData.username = adminDoc.get('username') ?? '';
+          _formData.email = adminDoc.get('email') ?? '';
+          _formData.profilePictureUrl = adminDoc.get('profilePictureUrl') ?? '';
+          _formData.phoneNumber = adminDoc.get('phoneNumber') ?? ''; // Add this line for phone number
+          _isLoading = false;
+        });
+      } else {
         setState(() {
           _isLoading = false;
         });
-        print("Error fetching admin data: $e");
+        print("Admin document does not exist.");
       }
-    } else {
+    } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print("User is not logged in.");
+      print("Error fetching admin data: $e");
     }
+  } else {
+    setState(() {
+      _isLoading = false;
+    });
+    print("User is not logged in.");
   }
+}
+
 
   Future<void> _saveAdminData() async {
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+  final userId = FirebaseAuth.instance.currentUser?.uid;
 
-    if (userId != null) {
-      try {
-        await FirebaseFirestore.instance.collection('admins').doc(userId).update({
-          'username': _formData.username,
-          'email': _formData.email,
-          'profilePictureUrl': _formData.profilePictureUrl,
-        });
-        print("Admin data saved successfully.");
-      } catch (e) {
-        print("Error saving admin data: $e");
-      }
+  if (userId != null) {
+    try {
+      await FirebaseFirestore.instance.collection('admins').doc(userId).update({
+        'username': _formData.username,
+        'email': _formData.email,
+        'profilePictureUrl': _formData.profilePictureUrl,
+        'phoneNumber': _formData.phoneNumber, // Add this line for phone number
+      });
+      print("Admin data saved successfully.");
+    } catch (e) {
+      print("Error saving admin data: $e");
     }
   }
+}
 
   Future<void> _pickAndUploadImage() async {
     final pickedFile = await ImagePickerWeb.getImageAsFile();
@@ -198,111 +200,140 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  Widget _buildProfileDetails() {
-    final labelStyle = TextStyle(
-      color: Colors.blue,
-      fontWeight: FontWeight.bold,
-    );
+ Widget _buildProfileDetails() {
+  final labelStyle = const TextStyle(
+    color: Colors.blue,
+    fontWeight: FontWeight.bold,
+  );
 
-    return Card(
-      elevation: 2.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
+  return Card(
+    elevation: 2.0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10.0),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(kDefaultPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Profile Information',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                const Icon(Icons.person, color: Colors.blue),
+                const SizedBox(width: 10),
+                Text('Username:', style: labelStyle),
+                const SizedBox(width: 10),
+                Expanded(child: Text(_formData.username)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                const Icon(Icons.email, color: Colors.blue),
+                const SizedBox(width: 10),
+                Text('Email:', style: labelStyle),
+                const SizedBox(width: 10),
+                Expanded(child: Text(_formData.email)),
+              ],
+            ),
+          ),
+          
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.phone, color: Colors.blue),
+                  const SizedBox(width: 10),
+                  Text('Phone Number:', style: labelStyle),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_formData.phoneNumber)),
+                ],
+              ),
+            ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(kDefaultPadding),
+    ),
+  );
+}
+
+
+  Widget _buildEditForm() {
+  return Card(
+    elevation: 2.0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10.0),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(kDefaultPadding),
+      child: FormBuilder(
+        key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Profile Information',
+              'Edit Profile',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(
-                children: [
-                  Icon(Icons.person, color: Colors.blue),
-                  const SizedBox(width: 10),
-                  Text('Username:', style: labelStyle),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(_formData.username)),
-                ],
+            FormBuilderTextField(
+              name: 'username',
+              initialValue: _formData.username,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
               ),
+              onChanged: (value) {
+                _formData.username = value ?? '';
+              },
+              validator: FormBuilderValidators.required(),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Row(
-                children: [
-                  Icon(Icons.email, color: Colors.blue),
-                  const SizedBox(width: 10),
-                  Text('Email:', style: labelStyle),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(_formData.email)),
-                ],
+            const SizedBox(height: 10),
+            FormBuilderTextField(
+              name: 'email',
+              initialValue: _formData.email,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email),
+                border: OutlineInputBorder(),
               ),
+              onChanged: (value) {
+                _formData.email = value ?? '';
+              },
+              validator: FormBuilderValidators.compose([
+                FormBuilderValidators.required(),
+                FormBuilderValidators.email(),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            FormBuilderTextField(
+              name: 'phoneNumber',
+              initialValue: _formData.phoneNumber,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                _formData.phoneNumber = value ?? '';
+              },
+              validator: FormBuilderValidators.required(),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildEditForm() {
-    return Card(
-      elevation: 2.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(kDefaultPadding),
-        child: FormBuilder(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Edit Profile',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 10),
-              FormBuilderTextField(
-                name: 'username',
-                initialValue: _formData.username,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  _formData.username = value ?? '';
-                },
-                validator: FormBuilderValidators.required(),
-              ),
-              const SizedBox(height: 10),
-              FormBuilderTextField(
-                name: 'email',
-                initialValue: _formData.email,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  _formData.email = value ?? '';
-                },
-                validator: FormBuilderValidators.compose([
-                  FormBuilderValidators.required(),
-                  FormBuilderValidators.email(),
-                ]),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildProfilePicture() {
     return Center(
@@ -314,7 +345,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ? NetworkImage(_formData.profilePictureUrl)
               : null,
           child: _formData.profilePictureUrl.isEmpty
-              ? Icon(Icons.camera_alt, size: 80)
+              ? const Icon(Icons.camera_alt, size: 80)
               : null,
         ),
       ),
@@ -330,8 +361,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           if (_isEditing)
             ElevatedButton.icon(
               onPressed: _cancelEdit,
-              icon: Icon(Icons.cancel),
-              label: Text('Cancel'),
+              icon: const Icon(Icons.cancel),
+              label: const Text('Cancel'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                 backgroundColor: Colors.red,
@@ -370,5 +401,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 class FormData {
   String username = '';
   String email = '';
+  String phoneNumber = '';
   String profilePictureUrl = '';
 }

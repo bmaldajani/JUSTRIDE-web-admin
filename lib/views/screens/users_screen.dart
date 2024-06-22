@@ -7,6 +7,7 @@ import 'package:web_admin/constants/dimens.dart';
 import 'package:web_admin/generated/l10n.dart';
 import 'package:web_admin/theme/theme_extensions/app_button_theme.dart';
 import 'package:web_admin/theme/theme_extensions/app_data_table_theme.dart';
+import 'package:web_admin/views/screens/user_detail_screen.dart';
 import 'package:web_admin/views/widgets/card_elements.dart';
 import 'package:web_admin/views/widgets/portal_master_layout/portal_master_layout.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -21,32 +22,53 @@ class UserScreen extends StatefulWidget {
 class _UserScreenState extends State<UserScreen> {
   final _scrollController = ScrollController();
   final _formKey = GlobalKey<FormBuilderState>();
-
   late DataSource _dataSource;
+  TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-
     _dataSource = DataSource(
       userService: FirebaseUserService(),
-      onDetailButtonPressed: (data) =>
-          GoRouter.of(context).go('${RouteUri.userDetail}?id=${data['id']}'),
+      onDetailButtonPressed: (user) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserDetailScreen(id: user['id']),
+          ),
+        );
+      },
       onDeleteButtonPressed: (data) => {}, // Implement delete functionality if needed
     );
 
     _fetchAndSetUsers();
   }
 
-  Future<void> _fetchAndSetUsers() async {
+    Future<void> _fetchAndSetUsers() async {
     await _dataSource.userService.fetchUsers();
+    _dataSource.resetFilter(); // Ensure _filteredUsers is initialized with all users
     _dataSource.notifyListeners(); // Notify listeners to refresh the DataTable
     setState(() {}); // Update the UI after data is fetched
+
+    // Debugging prints
+    print("User count: ${_dataSource.userService.userCount}");
+    print("Filtered users count: ${_dataSource.rowCount}");
+    print("Filtered users: ${_dataSource._filteredUsers}");
+  }
+
+
+  void _searchById(String userId) {
+    if (userId.isNotEmpty) {
+      _dataSource.filter(userId);
+    } else {
+      _dataSource.resetFilter();
+    }
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose(); // Dispose the TextEditingController
     super.dispose();
   }
 
@@ -97,6 +119,7 @@ class _UserScreenState extends State<UserScreen> {
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: kDefaultPadding * 1.5),
                                       child: FormBuilderTextField(
+                                        controller: _searchController,
                                         name: 'search',
                                         decoration: InputDecoration(
                                           labelText: lang.search,
@@ -117,7 +140,9 @@ class _UserScreenState extends State<UserScreen> {
                                           height: 40.0,
                                           child: ElevatedButton(
                                             style: themeData.extension<AppButtonTheme>()!.infoElevated,
-                                            onPressed: () {},
+                                            onPressed: () {
+                                              _searchById(_searchController.text.trim());
+                                            },
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,9 +214,12 @@ class _UserScreenState extends State<UserScreen> {
                                         showCheckboxColumn: false,
                                         showFirstLastButtons: true,
                                         columns: const [
+                                          DataColumn(label: Text('User ID')),
                                           DataColumn(label: Text('Email')),
                                           DataColumn(label: Text('Phone Number')),
                                           DataColumn(label: Text('Username')),
+                                          DataColumn(label: Text('Balance')),
+                                          DataColumn(label: Text('Status')),
                                           DataColumn(label: Text('Actions')),
                                         ],
                                       ),
@@ -220,24 +248,49 @@ class DataSource extends DataTableSource {
   final void Function(Map<String, dynamic>) onDetailButtonPressed;
   final void Function(Map<String, dynamic>) onDeleteButtonPressed;
 
+  List<Map<String, dynamic>> _filteredUsers = [];
+
   DataSource({
     required this.userService,
     required this.onDetailButtonPressed,
     required this.onDeleteButtonPressed,
-  });
+  }) {
+    _filteredUsers.addAll(userService._users); // Initialize with all users
+  }
+
+  void filter(String searchTerm) {
+    if (searchTerm.isEmpty) {
+      _filteredUsers.clear();
+      _filteredUsers.addAll(userService._users); // Reset to all users if searchTerm is empty
+    } else {
+      _filteredUsers.clear();
+      _filteredUsers.addAll(userService._users.where((user) =>
+          user['id'].toLowerCase().contains(searchTerm.toLowerCase())));
+    }
+    notifyListeners();
+  }
+
+  void resetFilter() {
+    _filteredUsers.clear();
+    _filteredUsers.addAll(userService._users);
+    notifyListeners();
+  }
 
   @override
   DataRow? getRow(int index) {
-    if (index >= userService.userCount) {
+    if (index >= _filteredUsers.length) {
       return null;
     }
-    final user = userService.getUser(index);
+    final user = _filteredUsers[index];
     return DataRow.byIndex(
       index: index,
       cells: [
+        DataCell(Text(user['id'])),
         DataCell(Text(user['email'] ?? '')),
         DataCell(Text(user['phone_number'] ?? '')),
         DataCell(Text(user['username'] ?? '')),
+        DataCell(Text(user['balance']?.toString() ?? '')),
+        DataCell(Text(user['status'] ?? '')),
         DataCell(
           Row(
             children: [
@@ -260,7 +313,7 @@ class DataSource extends DataTableSource {
   bool get isRowCountApproximate => false;
 
   @override
-  int get rowCount => userService.userCount;
+  int get rowCount => _filteredUsers.length;
 
   @override
   int get selectedRowCount => 0;
@@ -273,7 +326,11 @@ class FirebaseUserService {
   Future<void> fetchUsers() async {
     try {
       final snapshot = await _firestore.collection('users').get();
-      _users = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      _users = snapshot.docs.map((doc) {
+        var data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id; // Add the document ID to the data
+                return data;
+      }).toList();
       print("Fetched users: $_users");
     } catch (e) {
       print("Error fetching users: $e");

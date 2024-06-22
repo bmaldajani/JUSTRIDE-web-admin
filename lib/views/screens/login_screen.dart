@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   var _isFormLoading = false;
 
   Future<void> _doLoginAsync({
+    required BuildContext context,
     required VoidCallback onSuccess,
     required void Function(String message) onError,
   }) async {
@@ -44,6 +45,14 @@ class _LoginScreenState extends State<LoginScreen> {
           email: _formData.email,
           password: _formData.password,
         );
+
+        if (!userCredential.user!.emailVerified ?? false) {
+          // Email is not verified
+          throw FirebaseAuthException(
+            code: 'email-not-verified',
+            message: 'Please verify your email before logging in.',
+          );
+        }
 
         // Check if the user is in the admins collection
         DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
@@ -62,7 +71,8 @@ class _LoginScreenState extends State<LoginScreen> {
         final userDataProvider = context.read<UserDataProvider>();
         await userDataProvider.setUserDataAsync(
           username: adminSnapshot['username'],
-          userProfileImageUrl: 'https://picsum.photos/id/1005/300/300', // You might want to store and retrieve actual profile URLs
+          
+          userProfileImageUrl: 'https://picsum.photos/id/1005/300/300', // Replace with actual URL
         );
 
         onSuccess.call();
@@ -75,7 +85,30 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onLoginSuccess(BuildContext context) {
-    GoRouter.of(context).go(RouteUri.home);
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (user.emailVerified) {
+        GoRouter.of(context).go(RouteUri.home);
+      } else {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Email Verification Required'),
+              content: Text('Please verify your email before logging in.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the dialog
+                  },
+                  child: Text('OK'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
   }
 
   void _onLoginError(BuildContext context, String message) {
@@ -164,12 +197,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: double.infinity,
                               child: ElevatedButton(
                                 style: themeData.extension<AppButtonTheme>()!.primaryElevated,
-                                onPressed: (_isFormLoading
+                                onPressed: _isFormLoading
                                     ? null
                                     : () => _doLoginAsync(
+                                          context: context,
                                           onSuccess: () => _onLoginSuccess(context),
                                           onError: (message) => _onLoginError(context, message),
-                                        )),
+                                        ),
                                 child: Text(lang.login),
                               ),
                             ),
